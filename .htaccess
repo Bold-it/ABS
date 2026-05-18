@@ -1,0 +1,31 @@
+# ABS Production Routing Configuration
+
+# 1. FORCE PASSENGER OFF FOR LMS SUBDOMAIN
+<If "%{HTTP_HOST} =~ /lms\./">
+    PassengerEnabled off
+</If>
+
+# 2. ENABLE PASSENGER FOR ABS BRIDGE
+PassengerEnabled on
+PassengerAppRoot .
+PassengerAppType node
+PassengerStartupFile dist/main.js
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # 1. EXCLUDE LMS SUBDOMAIN: If it's the LMS, do not let Passenger/Node.js handle it
+  RewriteCond %{HTTP_HOST} ^lms\. [NC]
+  RewriteRule .* - [L]
+
+  # 2. EXCLUDE API: Do not rewrite any /api requests
+  RewriteCond %{REQUEST_URI} ^/api [NC]
+  RewriteRule .* - [L]
+
+  # 3. SPA ROUTING: If the request is not a real file or directory, 
+  # let the Node.js application handle it (ServeStaticModule fallback)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.*)$ index.html [L]
+</IfModule>

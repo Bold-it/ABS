@@ -1,0 +1,15 @@
+node_modules
+dist
+npm-debug.log
+Dockerfile
+docker-compose.yml
+.git
+.env
+*.docx
+extracted_proposal.txt
+proposal.md
+full_build_plan.txt
+extract_docx.py
+temp_doc_ext
+dashboard
+ C:\Users\Barbara Awuitor\.gemini\antigravity

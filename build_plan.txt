@@ -1,0 +1,439 @@
+﻿
+AUTO BRIDGE SERVICE
+ABS
+Automating the Connection Between the Admission System, Finance System,
+Student Portal and Moodle LMS
+26 Automated Tasks
+Zero Manual Work
+Real-Time Sync
+
+Prepared By: MOSES NYARKO, EDMUND PEPRAH & ISHMAEL HINI 
+8th April 2026
+
+Section 1. The Problem We Are Solving
+Before we talk about the solution, let us be very clear about what the problem actually is. Understanding the problem well is the key to understanding why this solution is the right one.
+
+1.1  How the School Systems Currently Work
+The school currently has three systems that are already connected and working together:
+
+The Admission System: This is where a student applies to the school. The registrar reviews the application and either approves or rejects it. When approved, the student gets an Index Number which is their unique student ID.
+The Finance System: This is already linked directly to the Admission System. When a student pays their school fees, the Finance System records the payment. When a student pays 60% or more of their total fees, the system automatically unlocks the Student Portal so they can register their courses.
+The Student Portal: This is where students log in to register for their courses. Lecturers and administrators have already mounted the available courses on this portal, organised by programme. A student logs in, sees the courses available for their programme, and clicks to register the ones they want to study.
+
+THE GAP: There is a fourth system Moodle LMS (Learning Management System)  which is where all course materials, assignments, and academic activities live online. The problem is that Moodle is completely separate. It does not talk to any of the three systems above. When a student pays fees and registers courses, nobody tells Moodle. A human being  usually an IT staff member  has to manually go into Moodle and do everything by hand.
+
+1.2  What Has to Be Done Manually Right Now
+Even though the three systems above work well together, there is one major gap. Moodle LMS sits completely outside of them. Here is everything a staff member currently has to do by hand in Moodle:
+Manually create a Moodle account for every new student who has paid their fees
+Manually create a school email address for every student, for example 0325080500@htu.edu.gh
+Lecturers and admins create and mount courses on Moodle each semester. This step stays as it is. However when a student then registers that course on the Student Portal, someone still has to go into Moodle separately and manually enrol them into that same course
+Manually enrol each student into all their registered courses on Moodle one by one even though the course is already sitting there on Moodle
+The existing system already sends login details to students automatically once the account exists. The problem is that the Moodle account and school email are never created automatically in the first place, so there is nothing to send until a staff member does it by hand
+When a student drops a course on the Student Portal, someone has to go into Moodle and manually remove them from that course
+When a student misses a fee payment deadline, someone has to manually go into Moodle and suspend their account
+When the student then pays and clears their balance, someone has to go back into Moodle and manually reactivate the account
+At the start of every new semester, someone has to manually enrol all students into their new semester courses on Moodle
+When results are published, notifications have to be sent manually to students
+
+The result: Staff spend enormous amounts of time on repetitive, manual data entry in Moodle. Students wait hours or even days to get Moodle access and a school email because these are not created automatically. Course enrolments on Moodle lag behind what students have registered on the portal. Restrictions and restorations are delayed. It is slow, error-prone, and completely unsustainable as the school grows.
+
+1.3  What the School Needs
+The school needs a system where all of this happens automatically, instantly, and without any human involvement. When a student pays their fees  within seconds not days , they should receive their index number, their school email address, their Moodle login, and access to their courses. When they register a course on the portal, Moodle should know about it immediately. When fees lapse, access should be restricted automatically. The entire process should run itself.
+
+Section 2.  The Solution: The Auto Bridge Service
+2.1  What Is the ABS? (Simple Explanation)
+Think of the ABS as a very intelligent middleman or translator that sits between all the school's computer systems and makes them talk to each other automatically.
+
+A simple analogy: Imagine the school has a very organised WhatsApp group. Right now, when something important happens in the Admission office, someone has to physically walk to the IT office and tell them what happened so they can update Moodle. The ABS is like hiring a very fast and very reliable assistant who is always watching the Admission System, the Finance System, and the Student Portal at the same time. The moment anything important happens such as a student paying fees, registering a course, or dropping a course, this assistant immediately takes all the necessary actions across all the other systems within seconds without anyone asking them to.
+
+The ABS does not replace any of the existing systems. It does not change how the Admission System, Finance System, or Student Portal work. It simply listens for events from those systems and automatically handles everything that used to be done manually.
+
+2.2  How It Works  
+Here is exactly what happens at each important moment in a student's journey:
+
+When a Student is Admitted
+The moment the Registrar approves a student's application in the Admission System, the ABS receives that information immediately and automatically does the following:
+Records the student in the bridge system so it can track all future actions for that student
+Sends the student a congratulations SMS and email: "You have been admitted. Please proceed to pay your fees at [portal link]."
+No human involvement needed. The student is notified within seconds of approval.
+
+When a Student Pays Any Amount of Fees
+Every time a payment is recorded in the Finance System, the ABS:
+Records the payment with a unique reference code to prevent any duplicates
+Sends the student a payment receipt via SMS and email showing the amount paid, their running total, the balance remaining, and the percentage of fees they have paid
+
+When a Student Pays 60% or More of Their Fees (The Big Moment)
+This is the most important trigger. When the Finance System confirms that a student has reached the 60% threshold, the ABS automatically does ALL of the following within seconds:
+Generates and permanently locks in the student's Index Number in the format YEAR/DEPARTMENT/PROGRAMME/NUMBER (e.g. 2024/CS/BSC/0042)
+Creates the student's Moodle account with their index number as their username
+Enrols the student in all the default courses for their programme and level on Moodle ù they can log in and see their course materials immediately
+Creates the student's official school email address: indexnumber@school.edu.gh
+Unlocks the Student Portal so the student can now register their specific courses
+Sends the student an SMS containing: index number, Moodle username, temporary password, and portal link .NOTE: the existing system already sends login notifications automatically. The difference here is that previously there was no Moodle account or school email to send. Now the ABS creates both first, then the notification carries real, working credentials
+Sends the student a welcome email containing all of the above plus their new school email address and a step-by-step guide on how to log in
+Everything above happens automatically within 5 to 10 seconds of the payment being confirmed with no staff member touching anything.
+
+When a Student Registers a Course on the Portal
+Important clarification: Lecturers and administrators continue to create and set up courses on Moodle manually as they always have. This does not change. The ABS does not create courses , that remains the responsibility of the academic staff. What the ABS solves is what happens after the course exists on Moodle and a student registers it on the portal.
+The moment a student clicks the Register button on the Student Portal, two things happen simultaneously:
+The portal immediately confirms the registration to the student ù they see a green tick within a fraction of a second
+At the same time, the ABS receives a notification and within 3 to 8 seconds, automatically enrols the student into that already-existing Moodle course ù they can immediately go to Moodle and see their course materials
+The student also receives an SMS: "You have successfully registered [Course Name]. Log in to Moodle to access your materials."
+
+Important design decision: The Student Portal does NOT wait for Moodle to respond before showing the student "Registered". The portal confirms instantly and Moodle is updated in the background. This means the student experience is always fast, even if Moodle is temporarily slow.
+
+When a Student Drops a Course
+If a student deregisters a course on the portal, the ABS automatically removes them from that course on Moodle within seconds. Their access to that course's materials is revoked immediately.
+
+When Fees Lapse or a Student Falls Behind on Payments
+If a student misses the fee payment deadline and has not paid enough, the ABS automatically:
+Suspends the student's Moodle account and they cannot log in
+Blocks the Student Portal so they cannot register new courses
+Sends the student an SMS and email: "Your access has been restricted due to outstanding fees. Your balance is [amount]. Pay now to restore access immediately."
+
+When a Restricted Student Pays and Clears Their Balance
+The moment the payment comes in and the student crosses the threshold again, the ABS automatically:
+Restores the student's Moodle access ,they can log in again within 60 seconds
+Unlocks the Student Portal
+Sends the student an SMS: "Your account has been restored. You can now access Moodle and register your courses."
+
+Automatic Fee Reminders
+The ABS runs automatic scheduled reminders for students with outstanding fees at 30 days, 14 days, 7 days, 3 days, and 1 day before the deadline. Each reminder is sent via SMS and email with the balance amount and a direct payment link. This happens automatically with no staff involvement.
+
+When Results Are Published
+When a lecturer publishes results on the academic portal, the ABS automatically sends every affected student an SMS and email notifying them that their grade is available, with a direct link to Moodle. At the same time, it syncs the grades into the Moodle gradebook so everything is consistent.
+
+At the Start of Every New Semester
+The ABS automatically enrols all active students in their new semester courses on Moodle at the beginning of each semester. No admin needs to do this manually for thousands of students.
+
+When a Student Graduates
+When a student is confirmed as graduated, the ABS automatically converts their Moodle account from a student role to an alumni role, preserving all their academic history and grades, and sends them a congratulations message with their certificate download link and alumni portal access.
+
+Section 3  Complete List of All 26 Automated Tasks
+The table below lists every single task that the ABS will handle automatically. Every row in this table represents something that currently requires manual work from a staff member. After implementation, all of it is fully automatic.
+
+#
+What Triggers It
+What ABS Does Automatically
+Systems Involved
+A1
+Student is admitted
+Create student record in bridge; start tracking
+Admission + Bridge
+A2
+Student is admitted
+Send congratulations SMS and email with fee payment link
+Admission + SMS + Email
+A3
+Any fee payment received
+Record payment; check idempotency (no duplicates)
+Finance + Bridge
+A4
+Any fee payment received
+Send payment receipt with balance and percentage paid
+Finance + SMS + Email
+A5
+60% fees threshold crossed
+Generate and permanently lock Index Number
+Finance + Bridge
+A6
+60% fees threshold crossed
+Create Moodle user account for student
+Finance + Moodle
+A7
+60% fees threshold crossed
+Enrol student in all default programme courses on Moodle
+Finance + Moodle
+A8
+60% fees threshold crossed
+Create school email address (indexno@school.edu.gh)
+Finance + M365
+A9
+60% fees threshold crossed
+Unlock student portal for student
+Finance + Portal
+A10
+Activation complete
+Send welcome SMS with index no., Moodle login, temp password
+Bridge + SMS
+A11
+Activation complete
+Send welcome email with school email + full login guide
+Bridge + Email
+A12
+Student registers a course (course already exists on Moodle ù mounted by admin/lecturer)
+Automatically enrol student into that existing Moodle course in real time
+Portal + Moodle
+A13
+Student registers a course
+Send SMS confirmation of successful course registration
+Portal + SMS
+A14
+Student drops a course
+Automatically remove student from that Moodle course in real time
+Portal + Moodle
+A15
+Fee deadline missed
+Suspend Moodle account ù student cannot log in
+Finance + Moodle
+A16
+Fee deadline missed
+Block student portal access
+Finance + Portal
+A17
+Fee deadline missed
+Send restriction notice with balance and payment link
+Finance + SMS + Email
+A18
+Restricted student pays enough
+Restore Moodle account access within 60 seconds
+Finance + Moodle
+A19
+Restricted student pays enough
+Unlock student portal
+Finance + Portal
+A20
+Restricted student pays enough
+Send restoration confirmation SMS and email
+Finance + SMS + Email
+A21
+Scheduled: 30/14/7/3/1 day before deadline
+Send automated fee reminder to all students with balance
+Bridge + SMS + Email
+A22
+Lecturer publishes results
+Notify every affected student by SMS and email
+Academic + SMS + Email
+A23
+Lecturer publishes results
+Sync grades into Moodle gradebook
+Academic + Moodle
+A24
+New semester starts
+Bulk enrol all active students in new semester courses
+Bridge + Moodle
+A25
+Semester ends
+Remove all students from previous semester courses on Moodle
+Bridge + Moodle
+A26
+Student graduates
+Convert Moodle account to alumni; send congratulations + cert link
+Academic + Moodle + Email
+
+Section 4  Technology Choices and Why We Chose Them
+Every technology choice in this solution was made for a specific practical reason. Below is a plain-language explanation of what each technology is, what it does in this system, and why it was chosen over the alternatives.
+
+4.1  NestJS (Node.js)  The Brain of the Bridge
+What it is
+NestJS is a framework for building server-side applications using JavaScript/TypeScript. Think of it as the engine of the ABS the software that receives events, makes decisions, and tells all the other pieces what to do.
+Why we chose it
+Built for exactly this type of work: NestJS is designed for systems that receive a lot of events and need to do many things at once  like receiving a payment notification and simultaneously creating a Moodle account, provisioning an email, and sending an SMS. JavaScript handles many tasks simultaneously without slowing down.
+Massive ecosystem: Every integration we need  Moodle REST API, Microsoft 365, Africa's Talking SMS, Paystack/Flutterwave payments has a well-maintained Node.js library. We are not writing everything from scratch.
+TypeScript safety: TypeScript adds strict data checking on top of JavaScript. This means if a student record is missing a field, the system catches the error before it causes a problem not after.
+Developer availability: JavaScript/TypeScript developers are the largest group of software developers in West Africa. Finding, hiring, and training people to work on this system is straightforward.
+Why not other options: Python (FastAPI) would also work well. PHP is possible but NestJS is more modern and scalable. Java would be overly complex for this type of integration service.
+
+4.2  Redis + Bull FOR The Job Queue (The Safety Net)
+What it is
+Redis is an extremely fast in-memory data store. Bull is a job queue library that uses Redis. Together, they act as the ABS's task manager and safety net.
+What it does here
+When the ABS needs to create a Moodle account, it does not call Moodle directly and then wait. Instead, it creates a "job" in the queue like writing a task on a to-do list. A worker then picks up that job and executes it. If Moodle is temporarily down or slow, the job stays in the queue and retries automatically.
+Why we chose it
+Reliability: No student activation is ever lost. Even if the server crashes mid-process, the jobs survive in Redis and continue when the server comes back up.
+Speed: Students get their confirmation (green tick on screen) immediately ,they never wait for Moodle. The queue handles the Moodle update in the background.
+Retry logic: If Moodle returns an error, the job automatically retries after 1 second, then 2, then 4, then 8, then 16 seconds. After 5 failures it alerts the admin.
+Visibility: The admin dashboard can see every job in the queue pending, running, completed or failed. Full transparency.
+
+4.3  PostgreSQL The Bridge Database
+What it is
+PostgreSQL is one of the world's most trusted relational databases. It stores data in organised tables with strict rules about what data is allowed.
+What it stores here
+The ABS has its own database that stores: which students have been synced and when, the result of every job (success or failure,), the full audit trail of every action taken, and the current state of each student (active, restricted or graduated).
+Why we chose it
+Reliability: PostgreSQL is used by banks, hospitals, and government systems worldwide. It never loses data.
+Sequences for Index Numbers: PostgreSQL has a built-in sequence feature a counter that guarantees every index number is unique, even if 1,000 students are activated at exactly the same time.
+Audit trail: Every action the ABS takes is recorded permanently. The school can always answer the question: "When did this student get their Moodle account? Who triggered it?"
+
+4.4  Moodle REST Web Services API Talking to Moodle
+What it is
+Moodle has a built-in feature that allows external systems to control it via API calls special web requests that create accounts, enrol students, and update records. This is called the Moodle Web Services API.
+Key functions used
+core_user_create_users: Creates a new student account on Moodle
+core_user_update_users: Updates an account ù used to suspend (restrict) or unsuspend (restore) access
+enrol_manual_enrol_users: Enrols a student in a specific course
+enrol_manual_unenrol_users: Removes a student from a course
+Critical warning for the developers
+WARNING: Moodle returns HTTP 200 (success) even when a request fails. The actual error is hidden inside the response body. The ABS must always read the full response and check for an 'exception' or 'errorcode' field. This catches every developer building Moodle integrations ù we know about it in advance.
+
+4.5  Microsoft 365 Graph API School Email Creation
+What it is
+Microsoft 365 (formerly Office 365) provides school email services. The Graph API allows external systems to create and manage mailboxes programmatically.
+Why we chose it
+Most universities already use M365: This is not a new purchase. We are simply using the API of a service the school likely already pays for.
+Automatic password reset: We set forceChangePasswordNextSignIn = true, meaning the student must change their password when they first log in. This is a security best practice.
+Alternative: If the school uses Google Workspace instead, the Google Admin SDK provides equivalent functionality with the same approach.
+
+4.6  Africa's Talking SMS Delivery
+What it is
+Africa's Talking is a telecommunications API platform built specifically for African markets. It allows software systems to send SMS messages to any phone number on any network in Ghana, Nigeria, Kenya, and most other African countries.
+Why we chose it over Twilio
+Built for Africa: Africa's Talking routes through local carriers directly. This gives higher delivery rates, lower latency, and significantly lower cost compared to international SMS providers like Twilio routing through the same carriers.
+Local support: They have offices and support teams in Nairobi and Lagos with deep knowledge of African telecoms regulations.
+Fallback: Twilio is configured as the fallback. If Africa's Talking fails to deliver, the ABS retries on Twilio automatically.
+
+4.7  Apache Kafka (Optional for larger deployments)
+What it is
+Kafka is a high-performance message streaming platform. Think of it as a very large, very fast postal service for data. It allows systems to send events to each other without being directly connected.
+When to use it
+For smaller schools: Redis + Bull (described above) is sufficient and simpler. Start with this.
+For larger schools: If the school has 10,000+ students or wants to connect many more systems in the future (library, hostel, transport, biometrics), Kafka provides the infrastructure to handle that scale cleanly. It is a future-proofing option, not a day-one requirement.
+
+4.8  Docker + Kubernetes Deployment
+What it is
+Docker packages the ABS application into a self-contained unit (called a container) that can run on any server. Kubernetes manages multiple containers, restarts them if they crash, and scales them up during busy periods.
+Why this matters
+Reliability: If the ABS crashes (which any software can do), Kubernetes restarts it automatically within seconds. No staff member needs to notice or respond.
+Scalability: On registration day when thousands of students are activating at once, Kubernetes can spin up extra copies of the ABS automatically to handle the load.
+Portability: The ABS can run on any server, any cloud provider (AWS, Azure, Google Cloud), or even a physical server in the school's data centre.
+
+Section 5 What Needs to Change in the Existing Systems
+A key advantage of this solution is that the existing systems barely need to change. Here is exactly what is required from each:
+
+5.1  Admission System
+The Admission System needs to fire one notification to the ABS when a student is admitted. This is a single HTTP POST request essentially, the Admission System sends a message to the bridge saying "student X has been admitted" and the bridge takes it from there.
+If modifying the Admission System is not possible, the ABS can instead check the Admission System's database every 30 seconds for new admissions. This requires zero code changes to the Admission System  only database read access.
+
+5.2  Finance System
+The Finance System needs to notify the ABS when a payment is received and when a fee deadline is reached. Again, these are simple HTTP notifications. The Finance System does not need to know anything about Moodle . it simply tells the bridge what happened.
+Same fallback applies: if modification is not possible, the ABS polls the Finance System's database directly.
+
+5.3  Student Portal
+The Student Portal needs to fire a notification when a student registers or drops a course. This is the most important integration point because it needs to happen in real time. The portal notifies the bridge, the bridge syncs Moodle ù all within seconds.
+
+The golden rule: None of the existing systems need to know Moodle exists. They simply tell the bridge what happened. The bridge handles everything else.
+
+Section 6 What Happens When Something Goes Wrong
+No system is perfect. The ABS is designed to handle failures gracefully so that no student is ever left in a broken state.
+
+6.1  The Retry Engine
+Every job that fails is automatically retried in the following pattern: after 1 second, then after 2 seconds, then 4, then 8, then 16 seconds. This covers the most common causes of failure: Moodle being temporarily busy, the email server being slow, or a brief internet outage. Most failures resolve themselves within the first two or three retries.
+
+6.2  The Dead-Letter Queue
+If a job fails all five retry attempts, it is moved to a special holding area called the Dead-Letter Queue. The admin dashboard immediately shows a notification. An administrator can review the failed job, understand why it failed, fix the underlying issue, and requeue it with one click. No student data is ever lost.
+
+6.3  Idempotency (No Duplicate Actions)
+Every payment webhook received from the Finance System carries a unique reference code. The ABS stores these reference codes. If the Finance System accidentally sends the same payment notification twice (which can happen with any payment system), the ABS detects the duplicate and ignores the second one. A student will never accidentally get two Moodle accounts or two school emails because of a duplicate notification.
+
+6.4  Admin Override
+Every automated action can be overridden by an administrator from the dashboard. If for any reason a student was not activated correctly, an admin can manually trigger any individual automation for that specific student ,create their Moodle account, resend their welcome SMS, restore their access with one click. Every override is logged with the administrator's name and the reason.
+
+Section 7 Implementation Timeline
+The ABS can be built and deployed in phases so the school sees benefits early without waiting for everything to be complete.
+
+Phase
+Timeline
+What Is Delivered
+Phase 1 >> Core
+Weeks 1û4
+Payment webhook, Moodle account creation, school email provisioning, activation SMS/email, course registration sync (A1ûA14)
+Phase 2 >> Access Control
+Weeks 5û6
+Fee restriction and restoration, fee reminder automation, admin dashboard with full job visibility (A15ûA21)
+Phase 3 >> Academic Sync
+Weeks 7û8
+Results notification, grade sync to Moodle, bulk semester enrolment/unenrolment, graduation conversion (A22ûA26)
+Phase 4 >> Hardening
+Weeks 9û10
+Load testing, security audit, monitoring dashboards, staff training, go-live on production
+
+Total time to full deployment: Approximately 10 weeks with one experienced backend developer. Phase 1 alone (the most critical automations) can be live in 4 weeks and will immediately eliminate the majority of manual work.
+
+Section 8 Benefits of This Solution
+8.1  For Students
+Speed: Receive Moodle access and school email within minutes of paying fees ù not days.
+Convenience: One click to register a course and it appears in Moodle automatically.
+Communication: Always kept informed via SMS and email at every step.
+Fairness: Access restrictions and restorations happen instantly .no student is disadvantaged by admin delays.
+
+8.2  For Staff and Administration
+Zero manual Moodle work: IT staff no longer spend time creating accounts, enrolling students, or managing access by hand.
+No more errors: Human data entry errors e.g wrong names, wrong courses, missed students . are eliminated.
+Full visibility: The admin dashboard shows the real-time state of every student and every job.
+Peace of mind: Every action is logged. Any question about what happened to a specific student can be answered instantly from the audit trail.
+
+8.3  For the Institution
+Scalability: The same system handles 500 students or 50,000 students without needing more IT staff.
+Professionalism: Students experience a modern, responsive institution. This strengthens the school's reputation.
+Future-ready: The bridge architecture makes it easy to add more integrations later , library systems, hostel management, biometric attendance, transport .. without rebuilding anything.
+Sellable product: This system can be packaged and licensed to other universities. What starts as an internal solution becomes a commercial product.
+
+Section 9. Where the ABS Will Be Hosted (Deployment)
+A common question when building a system like this is whether to host it on a cPanel hosting account or a VPS (Virtual Private Server). The answer for the ABS is clearly a VPS, and here is why explained in simple terms.
+
+9.1  Why Not cPanel
+cPanel is the type of hosting most people are familiar with from running websites and WordPress blogs. It is excellent for those purposes but it was never built to run background services, job queues, or persistent processes like the ABS needs. On cPanel you cannot run Redis, you cannot manage PostgreSQL properly, and background workers that need to run 24 hours a day get shut down by the hosting provider. Trying to run the ABS on cPanel would be like trying to run a factory inside a house. The house is fine but it is the wrong tool.
+
+9.2  Why VPS
+A VPS gives you a full dedicated Linux server. You install exactly what you need, run as many services as you want, and have complete control. Everything the ABS requires runs natively and reliably on a VPS. It is also significantly more cost-effective than shared hosting for what you get.
+
+9.3  Recommended VPS Provider
+For a Ghanaian university deployment the following options are most practical:
+
+DigitalOcean: The simplest to start with. A 4GB RAM, 2 CPU droplet at around 24 USD per month handles the ABS comfortably for a medium-sized school. Excellent documentation and straightforward Docker setup.
+Hetzner Cloud: Best value for money. A European provider that is very reliable and cheaper than most alternatives for the same specifications. A server at around 14 EUR per month handles production workloads well.
+Microsoft Azure: The best choice if the school already uses Microsoft 365 for email since the Graph API integration lives in the same ecosystem. Microsoft also offers discounted pricing for educational institutions.
+AWS Lightsail: A good entry point if the school wants a clear upgrade path to larger cloud infrastructure in the future.
+
+9.4  Minimum Server Requirements
+Resource
+Minimum
+Recommended
+RAM
+2 GB
+4 GB
+CPU
+1 vCPU
+2 vCPUs
+Storage
+20 GB SSD
+40 GB SSD
+Operating System
+Ubuntu 22.04 LTS
+Ubuntu 22.04 LTS
+Monthly Cost
+Approx. 12 USD
+Approx. 24 USD
+
+9.5  What Gets Deployed on the VPS
+The VPS runs four components inside Docker containers. Docker means each component is packaged neatly and they all start with a single command. The four components are the ABS bridge service itself, Redis for the job queue, PostgreSQL for the bridge database, and the admin dashboard. The entire system is defined in one configuration file and can be started or restarted with one command by any IT staff member.
+
+Simple summary: VPS is the right choice. It gives the ABS full control, reliability, and the ability to grow. The cost is low, the setup is straightforward, and it is the professional standard for running this type of system.
+
+Section 10 ù Summary
+The Auto Bridge Service is not a complex idea. It is a dedicated intelligent connector that sits between the school's existing systems and ensures they always stay in sync automatically, reliably, and in real time.
+
+It eliminates 26 manual tasks that currently consume staff time and introduce delays and errors. Students get their Moodle access and school email within minutes instead of days. Staff are freed from repetitive data entry and can focus on higher-value work. The school runs more efficiently, looks more professional, and is ready to grow.
+
+The bottom line: The school already has all the right systems in place. The Admission System is linked to the Finance System. Courses are already mounted on the Student Portal by programme. The ABS simply fills the one missing link by making all of these systems talk to Moodle automatically the way they should have been doing all along.
+
+Without ABS
+With ABS
+Manual Moodle account creation per student
+Automatic within 10 seconds of fee payment
+Students wait days for login credentials
+Students receive credentials within minutes
+Course registration and Moodle done separately
+One click and Moodle syncs automatically
+Restrictions applied manually when fees lapse
+Automatic restriction and restoration in 60 seconds
+Semester enrolments done manually by IT staff
+Automatic bulk enrolment at semester start
+Errors from manual data entry are common
+Zero human error as everything is automated and logged
+No audit trail ù hard to investigate issues
+Full audit trail with every action logged with timestamp
+
+End of Document
+Prepared 2026  |  Auto Bridge Service
+

@@ -1,0 +1,20 @@
+# ABS Production Routing Configuration
+PassengerEnabled on
+PassengerAppRoot .
+PassengerAppType node
+PassengerStartupFile dist/main.js
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # 1. EXCLUDE API: Do not rewrite any /api requests
+  RewriteCond %{REQUEST_URI} ^/api [NC]
+  RewriteRule .* - [L]
+
+  # 2. SPA ROUTING: If the request is not a real file or directory, 
+  # let the Node.js application handle it (ServeStaticModule fallback)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.*)$ index.html [L]
+</IfModule>

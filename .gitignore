@@ -1,0 +1,30 @@
+# Node
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js
+dashboard/.next/
+dashboard/out/
+dashboard/node_modules/
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Cache
+.moodle-cache.json
+
+# Archive / Backup Zips
+*.zip
+
+# Temp files
+temp_*/
+restore_*/
+deploy_temp/
+scratch/

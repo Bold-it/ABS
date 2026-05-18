@@ -1,0 +1,69 @@
+{
+	"info": {
+		"_postman_id": "abs-ropart-integration",
+		"name": "ABS Ropat Integration (Bulk Mode)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Trigger New Admission",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+					{ "key": "Content-Type", "value": "application/json", "type": "text" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"admissionId\": \"20261001\",\n  \"indexNumber\": \"0123456789\",\n  \"fullName\": \"Kofi Mensah\",\n  \"email\": \"k.mensah@personal-email.com\",\n  \"phone\": \"+233244000000\",\n  \"programme\": \"BSc Computer Science\",\n  \"level\": \"100\"\n}"
+				},
+				"url": { "raw": "http://test.htu.edu.gh/api/webhooks/admission" }
+			}
+		},
+		{
+			"name": "Trigger Payment Confirmation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+					{ "key": "Content-Type", "value": "application/json", "type": "text" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"admissionId\": \"20261001\",\n  \"amount\": 3500.00,\n  \"reference\": \"BANK-TXN-9988\",\n  \"paidAt\": \"2026-04-29T10:00:00Z\"\n}"
+				},
+				"url": { "raw": "http://test.htu.edu.gh/api/webhooks/payment" }
+			}
+		},
+		{
+			"name": "Trigger Bulk Course Registration",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+					{ "key": "Content-Type", "value": "application/json", "type": "text" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"admissionId\": \"20261001\",\n  \"courses\": [\n    { \"courseCode\": \"MATH161\", \"courseName\": \"Introduction to Statistics\" },\n    { \"courseCode\": \"CLT112\", \"courseName\": \"Computer Literacy I\" },\n    { \"courseCode\": \"COS110\", \"courseName\": \"Communication Skills I\" }\n  ]\n}"
+				},
+				"url": { "raw": "http://test.htu.edu.gh/api/webhooks/course-registration" }
+			}
+		},
+		{
+			"name": "Trigger Course Drop",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+					{ "key": "Content-Type", "value": "application/json", "type": "text" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"admissionId\": \"20261001\",\n  \"courseCode\": \"MATH161\"\n}"
+				},
+				"url": { "raw": "http://test.htu.edu.gh/api/webhooks/course-drop" }
+			}
+		}
+	]
+}
