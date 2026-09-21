@@ -8,6 +8,16 @@ export default function DashboardPage() {
   const [health, setHealth] = useState<any>(null);
   const [jobCounts, setJobCounts] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  // Check localStorage on mount to see if banner was already dismissed this month
+  useEffect(() => {
+    const dismissedMonth = localStorage.getItem('abs_banner_dismissed_month');
+    const currentMonth = `${new Date().getFullYear()}-${new Date().getMonth()}`;
+    if (dismissedMonth === currentMonth) {
+      setBannerDismissed(true);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,8 +49,37 @@ export default function DashboardPage() {
 
   if (loading && !stats) return <div className="text-primary font-medium">Loading statistics...</div>;
 
+  const handleDismissBanner = () => {
+    const currentMonth = `${new Date().getFullYear()}-${new Date().getMonth()}`;
+    localStorage.setItem('abs_banner_dismissed_month', currentMonth);
+    setBannerDismissed(true);
+  };
+
+  const currentMonth = new Date().getMonth();
+  // Show alert in August(7), September(8), January(0), February(1)
+  const isAlertMonth = [0, 1, 7, 8].includes(currentMonth);
+
   return (
     <div className="space-y-8">
+      {/* Pre-Semester Alert Banner */}
+      {isAlertMonth && !bannerDismissed && (
+        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm flex items-start gap-4 animate-pulse-slow">
+          <span className="text-amber-500 text-2xl">⚠️</span>
+          <div className="flex-1">
+            <h3 className="text-amber-800 font-black text-xs uppercase tracking-widest mb-1">Pre-Semester Action Required</h3>
+            <p className="text-amber-700 text-sm font-medium">
+              A new semester is approaching. Please ensure the Moodle Administrator has created the overarching Academic Year and Semester folders in the LMS, and assigned the correct ID Numbers (e.g., FAST_DOCS_26_S1) to the Departments so ABS can sort courses perfectly.
+            </p>
+          </div>
+          <button
+            onClick={handleDismissBanner}
+            title="Dismiss for this month"
+            className="text-amber-500 hover:text-amber-800 hover:bg-amber-100 rounded-full w-7 h-7 flex items-center justify-center text-lg font-black transition-colors flex-shrink-0 ml-2"
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard title="Total Students" value={stats?.total} icon="👥" color="bg-blue-500" href="/students" />
@@ -99,23 +138,63 @@ export default function DashboardPage() {
             <JobCount label="Failed" value="0" subLabel="Errors" color="text-red-500" />
           </div>
 
-          <div className="mt-8 p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200 flex items-center justify-between">
+          <div className="mt-8 p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-gray-500 italic text-left">"Automation is currently monitoring Finance and SOIS webhooks..."</p>
-            <button 
-                onClick={async () => {
-                    if(!confirm('This will re-evaluate Moodle access for EVERY student based on their current balance. Proceed?')) return;
-                    const token = localStorage.getItem('abs_token');
-                    const res = await fetch('/api/admin/students/sync-all', {
-                        method: 'POST',
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    const data = await res.json();
-                    alert(`Sync Started: Queued ${data.count} students for status re-evaluation.`);
-                }}
-                className="px-6 py-2 bg-primary text-white text-[10px] font-black rounded-lg hover:shadow-lg transition-all uppercase tracking-widest"
-            >
-                Global Status Sync
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button 
+                  title="Pulls the latest course list from SOIS and creates any missing ones on Moodle"
+                  onClick={async () => {
+                      if(!confirm('Fetch and dynamically create all mounted courses from SOIS on Moodle?')) return;
+                      const token = localStorage.getItem('abs_token');
+                      try {
+                        const res = await fetch('/api/admin/courses/sync-sois', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ year: '2025/2026', term: '1' })
+                        });
+                        const data = await res.json();
+                        alert(`SOIS Course Sync Complete!\nTotal Fetched: ${data.totalFetched || 0}\nCourses Created: ${data.coursesCreated || 0}\nCourses Already Existed: ${data.coursesExisting || 0}`);
+                      } catch (err: any) {
+                        alert('Sync error: ' + err.message);
+                      }
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg hover:shadow-lg transition-all uppercase tracking-widest"
+              >
+                  Sync SOIS Courses
+              </button>
+              <button 
+                  title="Checks every student's fee balance and suspends or unsuspends their Moodle access automatically"
+                  onClick={async () => {
+                      if(!confirm('This will re-evaluate Moodle access for EVERY student based on their current balance. Proceed?')) return;
+                      const token = localStorage.getItem('abs_token');
+                      const res = await fetch('/api/admin/students/sync-all', {
+                          method: 'POST',
+                          headers: { Authorization: `Bearer ${token}` }
+                      });
+                      const data = await res.json();
+                      alert(`Sync Started: Queued ${data.count} students for status re-evaluation.`);
+                  }}
+                  className="px-6 py-2 bg-primary text-white text-[10px] font-black rounded-lg hover:shadow-lg transition-all uppercase tracking-widest"
+              >
+                  Global Status Sync
+              </button>
+              <button 
+                  title="Locks out all students at the start of a new academic year. They will only be unsuspended when they register for courses on SOIS."
+                  onClick={async () => {
+                      if(!confirm('ATTENTION: This will restrict access for ALL active students immediately. They will remain locked out of Moodle until they register for courses. Proceed?')) return;
+                      const token = localStorage.getItem('abs_token');
+                      const res = await fetch('/api/admin/academic-year/rollover', {
+                          method: 'POST',
+                          headers: { Authorization: `Bearer ${token}` }
+                      });
+                      const data = await res.json();
+                      alert(data.message || 'Rollover triggered successfully.');
+                  }}
+                  className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black rounded-lg hover:shadow-lg transition-all uppercase tracking-widest"
+              >
+                  Trigger Rollover
+              </button>
+            </div>
           </div>
         </div>
       </div>

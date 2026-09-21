@@ -2,24 +2,22 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { GoogleLogin } from '@react-oauth/google';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoogleSuccess = async (credentialResponse: any) => {
     setLoading(true);
     setError('');
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/api/auth/google-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ credential: credentialResponse.credential }),
       });
 
       const data = await res.json();
@@ -52,45 +50,35 @@ export default function LoginPage() {
           </div>
         </div>
         
-        <form onSubmit={handleLogin} className="p-8 space-y-6">
+        <div className="p-8 space-y-6 flex flex-col items-center justify-center min-h-[200px]">
           {error && (
-            <div className="p-3 bg-red-100 text-red-600 rounded-lg text-sm font-medium border border-red-200">
+            <div className="w-full p-3 bg-red-100 text-red-600 rounded-lg text-sm font-medium border border-red-200 text-center">
               {error}
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">School Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-              placeholder="name@school.edu.gh"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-              placeholder="••••••••"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-4 bg-primary text-white rounded-xl font-bold text-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {loading ? 'Authenticating...' : 'Log In'}
-          </button>
-        </form>
+          {loading ? (
+            <div className="text-gray-500 font-medium">Authenticating securely...</div>
+          ) : (
+            <div className="w-full flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  setError('Google Login Failed. Please try again.');
+                }}
+                useOneTap
+                theme="outline"
+                size="large"
+                shape="rectangular"
+                width="100%"
+              />
+            </div>
+          )}
+          
+          <p className="text-xs text-gray-400 text-center mt-4">
+            Secured via HTU Google Workspace. Only authorized administrators may log in.
+          </p>
+        </div>
 
         <div className="p-6 bg-gray-50 text-center text-xs text-gray-400 border-t border-gray-100">
           HTU Auto Bridge Service © 2026

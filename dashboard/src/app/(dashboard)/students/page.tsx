@@ -214,6 +214,55 @@ function StudentsListContent() {
     }
   };
 
+  const handleSyncSoisAdmissions = async () => {
+    if (!confirm('Pull and onboard past uncaptured admitted students from SOIS?\n\nABS will automatically:\n1. Provision their @htu.edu.gh Google Workspace emails\n2. Create their Moodle LMS accounts\n3. Activate their status\n4. Send them a Welcome SMS with credentials!')) return;
+    const token = localStorage.getItem('abs_token');
+    try {
+      const res = await fetch('/api/admin/students/sync-sois-admissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ year: '2025/2026', term: '1' })
+      });
+      const data = await res.json();
+      alert(`SOIS Admissions Sync Complete!\nTotal Fetched: ${data.totalFetched || 0}\nNew Students Admitted: ${data.newStudentsAdmitted || 0}\nStudents Onboarded (Email & Moodle): ${data.studentsOnboarded || 0}`);
+      fetchStudents();
+    } catch (err: any) {
+      alert('Sync error: ' + err.message);
+    }
+  };
+
+  const handleImportMissedAdmissions = async () => {
+    if (!confirm('Import all 1,014 missed admission student records into ABS?\n\nABS will:\n1. Insert all 1,014 records into ABS Registry\n2. Provision Google Workspace Emails (@htu.edu.gh)\n3. Create Moodle LMS Accounts\n4. Send Welcome SMS credentials!')) return;
+    const token = localStorage.getItem('abs_token');
+    try {
+      const res = await fetch('/api/admin/students/import-missed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      alert(`Missed Admissions Import Complete!\n\nTotal Processed: ${data.totalImported || 0}\nNew Students Added: ${data.newStudentsAdded || 0}\nAlready Existed: ${data.alreadyExisted || 0}\nStudents Onboarded (Google & Moodle): ${data.studentsOnboarded || 0}`);
+      fetchStudents();
+    } catch (err: any) {
+      alert('Import error: ' + err.message);
+    }
+  };
+
+  const handleDeleteStudent = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to permanently delete "${name}"?\n\nThis will remove the student record from ABS.`)) return;
+    const token = localStorage.getItem('abs_token');
+    try {
+      const res = await fetch(`/api/admin/students/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      alert(data.message || 'Student record deleted');
+      fetchStudents();
+    } catch (err: any) {
+      alert(err.message || 'Error deleting student');
+    }
+  };
+
   return (
     <div className="relative min-h-full">
       <div className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4 mb-8">
@@ -246,8 +295,20 @@ function StudentsListContent() {
           </div>
         </div>
 
-        {/* Smart Report Center */}
-        <div className="flex gap-2 justify-end">
+        {/* Smart Report & Sync Center */}
+        <div className="flex flex-wrap gap-2 justify-end">
+          <button
+            onClick={handleImportMissedAdmissions}
+            className="px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-xl shadow hover:shadow-lg transition-all uppercase tracking-wider flex items-center gap-2"
+          >
+            <span>📥</span> Import Missed (1,014)
+          </button>
+          <button
+            onClick={handleSyncSoisAdmissions}
+            className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow hover:shadow-lg transition-all uppercase tracking-wider flex items-center gap-2"
+          >
+            <span>⚡</span> Pull SOIS Admissions
+          </button>
           <button
             onClick={handleExportCSV}
             className="px-4 py-3 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-black rounded-xl hover:shadow transition-all uppercase tracking-wider flex items-center gap-2"
@@ -330,6 +391,13 @@ function StudentsListContent() {
                         className="px-4 py-2 bg-white border border-gray-200 text-primary text-[10px] font-black rounded-lg hover:bg-primary hover:text-white transition-all disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-primary uppercase tracking-widest"
                     >
                         FORCE SYNC
+                    </button>
+                    <button
+                        onClick={() => handleDeleteStudent(student.id, student.fullName)}
+                        title="Delete Student Record"
+                        className="px-3 py-2 bg-red-50 border border-red-200 text-red-600 text-[10px] font-black rounded-lg hover:bg-red-600 hover:text-white transition-all uppercase tracking-widest"
+                    >
+                        🗑️
                     </button>
                     </td>
                 </tr>

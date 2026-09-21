@@ -1,0 +1,9 @@
+{
+  "admissionId": "TEST-AGENT-001",
+  "indexNumber": "AGT001",
+  "fullName": "Test Agent",
+  "email": "agent@test.com",
+  "phone": "+233244000000",
+  "programme": "Test Verification",
+  "level": "100"
+}

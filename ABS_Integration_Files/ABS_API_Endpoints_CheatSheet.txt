@@ -1,0 +1,19 @@
+AUTO BRIDGE SERVICE (ABS) - API CHEAT SHEET
+
+Authentication Header (Required for all endpoints):
+x-api-key: 32b211c8bac34b69a303996dc2eb7640
+
+1. SOIS ADMISSION ENDPOINT
+URL: https://abs.htu.edu.gh/api/webhooks/admission
+Method: POST
+Description: Call this immediately when a student is admitted to provision their Google Workspace and Moodle accounts.
+
+2. ROPAT COURSE REGISTRATION ENDPOINT
+URL: https://abs.htu.edu.gh/api/webhooks/course-registration
+Method: POST
+Description: Call this when a student finalizes course registration to enroll them in Moodle courses dynamically.
+
+3. FINANCE PAYMENT ENDPOINT
+URL: https://abs.htu.edu.gh/api/webhooks/payment
+Method: POST
+Description: Call this when a student makes a payment. ABS uses the 'outstandingBalance' to lock/unlock Moodle access.

@@ -2,6 +2,7 @@
 	"info": {
 		"_postman_id": "abs-ropart-integration",
 		"name": "ABS Ropat Integration (Bulk Mode)",
+		"description": "Postman collection for integrating the Ropat Student Portal with the Auto Bridge Service (ABS). Contains all webhook triggers for student admissions, fee payments, course registrations, semester enrolments, semester drops, and graduation events.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -63,6 +64,51 @@
 					"raw": "{\n  \"admissionId\": \"20261001\",\n  \"courseCode\": \"MATH161\"\n}"
 				},
 				"url": { "raw": "http://test.htu.edu.gh/api/webhooks/course-drop" }
+			}
+		},
+		{
+			"name": "Trigger Semester Enrolment",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+					{ "key": "Content-Type", "value": "application/json", "type": "text" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"admissionId\": \"20261001\",\n  \"semester\": \"2025/2026 SEM 2\",\n  \"courses\": [\n    { \"courseCode\": \"AED205\", \"courseName\": \"Agro-Enterprise Development II\" },\n    { \"courseCode\": \"CS201\", \"courseName\": \"Data Structures\" }\n  ]\n}"
+				},
+				"url": { "raw": "http://test.htu.edu.gh/api/webhooks/semester-enrolment" }
+			}
+		},
+		{
+			"name": "Trigger Semester Drop",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+					{ "key": "Content-Type", "value": "application/json", "type": "text" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"admissionId\": \"20261001\",\n  \"semester\": \"2025/2026 SEM 2\"\n}"
+				},
+				"url": { "raw": "http://test.htu.edu.gh/api/webhooks/semester-drop" }
+			}
+		},
+		{
+			"name": "Trigger Graduation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+					{ "key": "Content-Type", "value": "application/json", "type": "text" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"admissionId\": \"20261001\",\n  \"degreeClass\": \"First Class Honours\",\n  \"graduationDate\": \"2026-05-21\"\n}"
+				},
+				"url": { "raw": "http://test.htu.edu.gh/api/webhooks/graduation" }
 			}
 		}
 	]

@@ -1,31 +1,31 @@
 # ABS Production Routing Configuration
 
-# 1. FORCE PASSENGER OFF FOR LMS SUBDOMAIN
-<If "%{HTTP_HOST} =~ /lms\./">
-    PassengerEnabled off
-</If>
-
-# 2. ENABLE PASSENGER FOR ABS BRIDGE
 PassengerEnabled on
-PassengerAppRoot .
+PassengerAppRoot /home/abshtuedu/abs_backend
 PassengerAppType node
-PassengerStartupFile dist/main.js
+PassengerStartupFile app.js
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
-  
-  # 1. EXCLUDE LMS SUBDOMAIN: If it's the LMS, do not let Passenger/Node.js handle it
+
+  # 1. EXCLUDE LMS SUBDOMAIN
   RewriteCond %{HTTP_HOST} ^lms\. [NC]
   RewriteRule .* - [L]
 
-  # 2. EXCLUDE API: Do not rewrite any /api requests
-  RewriteCond %{REQUEST_URI} ^/api [NC]
+  # 2. DIRECT REWRITE FOR _NEXT STATIC ASSETS AND PUBLIC FILES
+  RewriteRule ^_next/(.*)$ out/_next/$1 [L]
+  RewriteRule ^logo\.png$ out/logo.png [L]
+  RewriteRule ^favicon\.ico$ out/favicon.ico [L]
+
+  # 3. SERVE PHYSICAL FILES DIRECTLY IF THEY EXIST ON DISK
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule .* - [L]
 
-  # 3. SPA ROUTING: If the request is not a real file or directory, 
-  # let the Node.js application handle it (ServeStaticModule fallback)
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule ^(.*)$ index.html [L]
+  # 4. ROUTE EVERYTHING ELSE TO NESTJS (ServeStaticModule handles HTML & API)
+  RewriteRule ^(.*)$ app.js [L]
 </IfModule>
+
+
+

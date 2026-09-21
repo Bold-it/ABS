@@ -31,6 +31,22 @@ function StudentDetailContent() {
   if (loading) return <div className="p-8 text-primary font-black uppercase tracking-widest animate-pulse">Scanning Registry...</div>;
   if (!student) return <div className="p-8 text-red-500 font-bold">Student not found.</div>;
 
+  const handleDeleteStudent = async () => {
+    if (!confirm(`Are you sure you want to permanently delete "${student.fullName}"?\n\nThis action cannot be undone.`)) return;
+    const token = localStorage.getItem('abs_token');
+    try {
+      const res = await fetch(`/api/admin/students/${student.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      alert(data.message || 'Student record deleted');
+      router.push('/students');
+    } catch (err: any) {
+      alert(err.message || 'Error deleting student');
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* Header Profile */}
@@ -51,10 +67,18 @@ function StudentDetailContent() {
           <p className="text-gray-400 font-bold uppercase tracking-[0.2em] text-xs">
             {student.programme} • LEVEL {student.level} • {student.indexNumber || 'PENDING INDEXING'}
           </p>
+          {student.createdAt && (
+            <p className="text-emerald-600 font-bold text-xs mt-2 flex items-center justify-center md:justify-start gap-1">
+              <span>📅</span> Admission Received: {new Date(student.createdAt).toLocaleDateString()} at {new Date(student.createdAt).toLocaleTimeString()}
+            </p>
+          )}
         </div>
         <div className="flex flex-col gap-2">
             <button onClick={() => router.back()} className="px-6 py-3 bg-gray-50 text-gray-400 font-black rounded-2xl hover:bg-gray-100 transition-all uppercase text-[10px] tracking-widest">
                 ← Return to Registry
+            </button>
+            <button onClick={handleDeleteStudent} className="px-6 py-3 bg-red-50 text-red-600 border border-red-200 font-black rounded-2xl hover:bg-red-600 hover:text-white transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
+                <span>🗑️</span> Delete Student
             </button>
         </div>
       </div>

@@ -1,0 +1,55 @@
+{
+  "info": {
+    "_postman_id": "abs-ropart-integration-core",
+    "name": "ABS Ropat Integration (Live Core)",
+    "description": "Postman collection containing only the core webhook triggers for Admission, Course Registration, and Results Publication.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Trigger New Admission",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"admissionId\": \"20261001\",\n  \"indexNumber\": \"0123456789\",\n  \"fullName\": \"Kofi Mensah\",\n  \"email\": \"k.mensah@personal-email.com\",\n  \"phone\": \"+233244000000\",\n  \"programme\": \"BSc Computer Science\",\n  \"level\": \"100\"\n}"
+        },
+        "url": { "raw": "https://test.htu.edu.gh/api/webhooks/admission" }
+      }
+    },
+    {
+      "name": "Trigger Bulk Course Registration",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"admissionId\": \"20261001\",\n  \"courses\": [\n    { \"courseCode\": \"MATH161\", \"courseName\": \"Introduction to Statistics\" },\n    { \"courseCode\": \"CLT112\", \"courseName\": \"Computer Literacy I\" },\n    { \"courseCode\": \"COS110\", \"courseName\": \"Communication Skills I\" }\n  ]\n}"
+        },
+        "url": { "raw": "https://test.htu.edu.gh/api/webhooks/course-registration" }
+      }
+    },
+    {
+      "name": "Trigger Result Publication",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"admissionId\": \"20261001\",\n  \"results\": [\n    { \"courseCode\": \"MATH161\", \"score\": 85, \"grade\": \"A\" },\n    { \"courseCode\": \"CLT112\", \"score\": 72, \"grade\": \"B+\" }\n  ]\n}"
+        },
+        "url": { "raw": "https://test.htu.edu.gh/api/webhooks/result-publication" }
+      }
+    }
+  ]
+}

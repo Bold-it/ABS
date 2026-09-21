@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { Student, StudentState } from './student.entity';
 import { AuditLog } from './audit-log.entity';
 import { MoodleService } from './moodle.service';
-import { Ms365Service } from './ms365.service';
+import { GoogleWorkspaceService } from './google-workspace.service';
 import { SmsService } from './sms.service';
 
 @Injectable()
@@ -17,7 +17,7 @@ export class OnboardingService {
     @InjectRepository(AuditLog)
     private auditLogRepo: Repository<AuditLog>,
     private moodleService: MoodleService,
-    private ms365Service: Ms365Service,
+    private googleWorkspaceService: GoogleWorkspaceService,
     private smsService: SmsService,
   ) {}
 
@@ -25,11 +25,11 @@ export class OnboardingService {
     this.logger.log(`Onboarding student: ${student.fullName}`);
 
     try {
-      // 1. Provision MS365 Email
-      if (!student.schoolEmail) {
-        student.schoolEmail = await this.ms365Service.provisionEmail(student.indexNumber, student.fullName);
+      // 1. Provision Google Workspace Email
+      if (!student.schoolEmail || !student.schoolEmail.includes('@')) {
+        student.schoolEmail = await this.googleWorkspaceService.provisionEmail(student.indexNumber, student.fullName);
         await this.studentRepo.save(student);
-        await this.logAction(student.id, 'MS365_EMAIL_PROVISIONED', `Email: ${student.schoolEmail}`);
+        await this.logAction(student.id, 'GOOGLE_EMAIL_PROVISIONED', `Email: ${student.schoolEmail}`);
       }
 
       // 2. Create Moodle Account
@@ -48,7 +48,7 @@ export class OnboardingService {
         await this.logAction(student.id, 'STUDENT_ACTIVATED', 'Student moved to ACTIVE state');
 
         // 4. Send Welcome SMS
-        const msg = `Hi ${student.fullName}, welcome to HTU! Your LMS account is ready. Login at lms.test.htu.edu.gh with your index number.`;
+        const msg = `Hi ${student.fullName}, welcome to HTU! Your LMS account is ready. Login at lms.htu.edu.gh with your index number.`;
         await this.smsService.sendSms(student.phone, msg);
       }
 
@@ -58,7 +58,7 @@ export class OnboardingService {
     }
   }
 
-  async handleBulkCourseEnrollment(student: Student, courses: { courseCode: string }[]) {
+  async handleBulkCourseEnrollment(student: Student, courses: { courseCode: string }[], semester?: string) {
     if (!student.moodleUserId) {
         await this.onboardStudent(student);
     }
@@ -67,6 +67,12 @@ export class OnboardingService {
       this.logger.error(`Cannot enroll student ${student.indexNumber} - Moodle account creation failed.`);
       await this.logAction(student.id, 'COURSE_ENROLLMENT_FAILED', 'Skipped course enrollment: Moodle account does not exist.');
       return;
+    }
+
+    // Ensure the student is completely unsuspended since they are cleared to register courses
+    if (student.state !== StudentState.ACTIVE) {
+        this.logger.log(`Student ${student.indexNumber} is not active. Unsuspending prior to enrollment...`);
+        await this.handleUnsuspension(student);
     }
 
     const resolvedCourseIds: number[] = [];
@@ -80,7 +86,7 @@ export class OnboardingService {
         this.logger.log(`Course ${c.courseCode} not found on Moodle. Attempting dynamic creation...`);
         const courseName = (c as any).courseName || c.courseCode;
         try {
-          moodleCourseId = await this.moodleService.createCourse(c.courseCode, courseName);
+          moodleCourseId = await this.moodleService.createCourse(c.courseCode, courseName, semester, (c as any).academicYear || '2026/2027');
           if (moodleCourseId) {
             await this.logAction(
               student.id,
@@ -144,10 +150,17 @@ export class OnboardingService {
 
   async handleResultsSync(student: Student, results: { courseCode: string, score: number }[]) {
     if (student.moodleUserId) {
+        let syncedCount = 0;
         for (const res of results) {
-            await this.moodleService.updateGrade(student.moodleUserId, res.courseCode, res.score);
+            const moodleCourseId = await this.moodleService.getCourseIdByShortname(res.courseCode);
+            if (moodleCourseId) {
+                await this.moodleService.updateGrade(student.moodleUserId, String(moodleCourseId), res.score);
+                syncedCount++;
+            } else {
+                this.logger.warn(`Could not sync grade for ${res.courseCode}: Course not found in Moodle.`);
+            }
         }
-        await this.logAction(student.id, 'RESULTS_SYNCED', `Synced ${results.length} course results`);
+        await this.logAction(student.id, 'RESULTS_SYNCED', `Synced ${syncedCount} out of ${results.length} course results`);
         
         const msg = `Hi ${student.fullName}, your semester results have been published. Log in to Moodle to view your grades!`;
         await this.smsService.sendSms(student.phone, msg);
@@ -177,22 +190,47 @@ export class OnboardingService {
     this.logger.log(`Starting bulk status sync for ${students.length} students`);
     
     let updatedCount = 0;
+    let failedCount = 0;
     for (const student of students) {
-      const shouldBeActive = (student.paymentPercentage || 0) >= 60;
-      
-      if (shouldBeActive && student.state !== StudentState.ACTIVE) {
-        await this.onboardStudent(student);
-        await this.handleUnsuspension(student);
-        updatedCount++;
-      } else if (!shouldBeActive && student.state === StudentState.ACTIVE) {
-        await this.handleSuspension(student);
-        updatedCount++;
+      try {
+        const shouldBeActive = true; 
+        
+        if (shouldBeActive && student.state !== StudentState.ACTIVE) {
+          await this.onboardStudent(student);
+          if (student.moodleUserId) {
+            await this.handleUnsuspension(student);
+          }
+          updatedCount++;
+        } else if (!shouldBeActive && student.state === StudentState.ACTIVE) {
+          await this.handleSuspension(student);
+          updatedCount++;
+        }
+      } catch (err: any) {
+        this.logger.error(`Error syncing student ${student.indexNumber}: ${err.message}`);
+        failedCount++;
       }
     }
     
-    this.logger.log(`Bulk sync completed. Updated ${updatedCount} students.`);
-    return updatedCount;
+    this.logger.log(`Bulk sync completed. Updated ${updatedCount} students, ${failedCount} failed.`);
+    return { updatedCount, failedCount, totalStudents: students.length };
   }
+
+  async handleGraduation(student: Student, degreeClass: string) {
+    if (student.moodleUserId) {
+        try {
+            await this.moodleService.convertUserToAlumni(student.moodleUserId);
+            await this.logAction(student.id, 'ALUMNI_CONVERSION', `Converted Moodle account to Alumni status`);
+        } catch (error) {
+            this.logger.error(`Moodle alumni conversion failed: ${error.message}`);
+            await this.logAction(student.id, 'ALUMNI_CONVERSION_FAILED', `Error: ${error.message}`);
+        }
+    }
+    
+    // Send congratulations SMS
+    const msg = `Congratulations ${student.fullName}! You have successfully graduated with ${degreeClass}. Your LMS account has been updated to Alumni status.`;
+    await this.smsService.sendSms(student.phone, msg);
+  }
+
 
   private async logAction(studentId: string, action: string, details: string) {
     await this.auditLogRepo.save({

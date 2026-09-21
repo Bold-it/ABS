@@ -1,0 +1,79 @@
+{
+  "info": {
+    "name": "FINAL ABS TEST SUITE",
+    "description": "Tests the newly updated logic: Admissions -> Course Registration",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. New Student Admission (Creates Email & Blank Moodle)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "32b211c8bac34b69a303996dc2eb7640"
+          }
+        ],
+        "url": {
+          "raw": "http://test.htu.edu.gh/api/webhooks/admission",
+          "protocol": "http",
+          "host": [
+            "test",
+            "htu",
+            "edu",
+            "gh"
+          ],
+          "path": [
+            "api",
+            "webhooks",
+            "admission"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"admissionId\": \"TEST-FINAL-002\",\n  \"indexNumber\": \"FINAL002\",\n  \"fullName\": \"Final Test Student\",\n  \"programme\": \"BTech Computer Science\",\n  \"phone\": \"0550000002\"\n}"
+        }
+      }
+    },
+    {
+      "name": "2. Course Registration (Unlocks & Enrolls Courses)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "32b211c8bac34b69a303996dc2eb7640"
+          }
+        ],
+        "url": {
+          "raw": "http://test.htu.edu.gh/api/webhooks/course-registration",
+          "protocol": "http",
+          "host": [
+            "test",
+            "htu",
+            "edu",
+            "gh"
+          ],
+          "path": [
+            "api",
+            "webhooks",
+            "course-registration"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"admissionId\": \"TEST-FINAL-002\",\n  \"courses\": [\n    { \"courseCode\": \"CS_101\", \"courseName\": \"Intro to Programming\" },\n    { \"courseCode\": \"MTH_202\", \"courseName\": \"Advanced Calculus\" },\n    { \"courseCode\": \"HTU_999\", \"courseName\": \"Brand New Dynamic Course\" }\n  ]\n}"
+        }
+      }
+    }
+  ]
+}

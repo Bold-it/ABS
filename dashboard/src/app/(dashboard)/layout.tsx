@@ -7,6 +7,7 @@ import Link from 'next/link';
 const menuItems = [
   { name: 'Home', path: '/', icon: '🏠' },
   { name: 'Students', path: '/students', icon: '🎓' },
+  { name: 'Mounted Courses', path: '/courses', icon: '📚' },
   { name: 'Audit Logs', path: '/audit-logs', icon: '📜' },
   { name: 'Job Queue', path: '/jobs', icon: '⚙️' },
   { name: 'Simulation Lab', path: '/simulation', icon: '🧪' },

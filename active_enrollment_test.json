@@ -1,0 +1,55 @@
+{
+  "info": {
+    "_postman_id": "abs-active-enrollment-test",
+    "name": "ABS Active Enrollment Test",
+    "description": "Fires the exact sequence of webhooks needed to admit a student, verify their 100% fee payment (guaranteeing active Moodle access), and enroll them in courses.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Trigger New Admission",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"admissionId\": \"TEST-ACTIVE-001\",\n  \"indexNumber\": \"ACT001\",\n  \"fullName\": \"Active Test Student\",\n  \"email\": \"active.test@personal.com\",\n  \"phone\": \"+233244000001\",\n  \"programme\": \"BSc Active Testing\",\n  \"level\": \"100\"\n}"
+        },
+        "url": "http://test.htu.edu.gh/api/webhooks/admission"
+      }
+    },
+    {
+      "name": "2. Trigger Payment (100% - Unlocks Moodle)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"admissionId\": \"TEST-ACTIVE-001\",\n  \"amount\": 3500.00,\n  \"paidPercentage\": 100,\n  \"reference\": \"BANK-TXN-100-PERCENT\"\n}"
+        },
+        "url": "http://test.htu.edu.gh/api/webhooks/payment"
+      }
+    },
+    {
+      "name": "3. Trigger Course Registration",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-API-KEY", "value": "32b211c8bac34b69a303996dc2eb7640", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"admissionId\": \"TEST-ACTIVE-001\",\n  \"courses\": [\n    { \"courseCode\": \"MATH161\", \"courseName\": \"Introduction to Statistics\" },\n    { \"courseCode\": \"CLT112\", \"courseName\": \"Computer Literacy I\" }\n  ]\n}"
+        },
+        "url": "http://test.htu.edu.gh/api/webhooks/course-registration"
+      }
+    }
+  ]
+}

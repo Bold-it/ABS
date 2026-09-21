@@ -1,0 +1,6 @@
+1:"$Sreact.fragment"
+2:I[3053,["177","static/chunks/app/layout-82cde23c8aa56796.js"],"GoogleOAuthProvider"]
+3:I[7121,[],""]
+4:I[4581,[],""]
+:HL["/_next/static/css/75755caa27f87b3f.css","style"]
+0:{"rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/css/75755caa27f87b3f.css","precedence":"next"}]],["$","html",null,{"lang":"en","className":"h-full antialiased font-sans","children":["$","body",null,{"className":"min-h-full flex flex-col","children":["$","$L2",null,{"clientId":"832838274328-m6puikg771otmrdgs5ecgkf2rimmk9or.apps.googleusercontent.com","children":["$","$L3",null,{"parallelRouterKey":"children","template":["$","$L4",null,{}]}]}]}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"aT_BxK1gJSGcef1kRIT5m"}

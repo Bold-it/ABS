@@ -1,0 +1,7 @@
+{
+  "admissionId": "ADM-2026-001",
+  "courses": [
+    { "courseCode": "CS_101", "courseName": "Introduction to Programming" },
+    { "courseCode": "MTH_202", "courseName": "Advanced Calculus" }
+  ]
+}

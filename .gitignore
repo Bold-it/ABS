@@ -28,3 +28,4 @@ temp_*/
 restore_*/
 deploy_temp/
 scratch/
+google-credentials.json

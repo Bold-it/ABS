@@ -9,6 +9,7 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "./src",
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
@@ -18,5 +19,18 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
   },
-  "exclude": ["node_modules", "dist", "dashboard"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dashboard",
+    "ABS_DEPLOY",
+    "ABS_Integration_Files",
+    "ABS_UPLOAD_PACKAGE",
+    "deploy_temp",
+    "restore_*",
+    "staging_deploy_clean",
+    "temp_*",
+    "zip from test to abs"
+  ]
 }
