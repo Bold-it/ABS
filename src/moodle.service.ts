@@ -60,23 +60,25 @@ export class MoodleService {
     // Check if user already exists in Moodle
     if (!this.isMock) {
       try {
-        const existingUsers = await this.callMoodle('core_user_get_users_by_field', {
+        let existingUsers = await this.callMoodle('core_user_get_users_by_field', {
           field: 'username',
           'values[0]': username
         });
+        
+        // If not found by username, fallback to checking by email
+        if (!existingUsers || existingUsers.length === 0) {
+           existingUsers = await this.callMoodle('core_user_get_users_by_field', {
+             field: 'email',
+             'values[0]': email
+           });
+        }
+
         if (existingUsers && existingUsers.length > 0) {
-          this.logger.log(`User ${username} already exists in Moodle. Linking existing account.`);
-          
-          const existingUserId = existingUsers[0].id;
-          
-          // Safety: Since the school Moodle already uses GAuth exclusively, 
-          // we do not need to touch or force-update their authentication method. 
-          // We simply leave their profile completely alone to prevent any disruption.
-          
-          return existingUserId;
+          this.logger.log(`User ${username}/${email} already exists in Moodle. Linking existing account.`);
+          return existingUsers[0].id;
         }
       } catch (error) {
-        this.logger.warn(`Failed to check if user ${username} exists: ${error.message}`);
+        this.logger.warn(`Failed to check if user ${username}/${email} exists: ${error.message}`);
       }
     }
 
@@ -107,6 +109,19 @@ export class MoodleService {
       params[`enrolments[${index}][courseid]`] = id;
     });
     return this.callMoodle('enrol_manual_enrol_users', params);
+  }
+
+  async enrollTeacher(moodleUserId: string, courseId: string | number) {
+    const params: any = {
+      'enrolments[0][roleid]': 3, // 3 = Editing Teacher
+      'enrolments[0][userid]': moodleUserId,
+      'enrolments[0][courseid]': courseId,
+    };
+    try {
+      return await this.callMoodle('enrol_manual_enrol_users', params);
+    } catch (err: any) {
+      this.logger.warn(`Could not enroll teacher ${moodleUserId} in course ${courseId}: ${err.message}`);
+    }
   }
 
   async unenrollStudent(moodleUserId: string, courseIds: (string | number)[]) {
@@ -259,7 +274,7 @@ export class MoodleService {
     }
 
     // 2. Faculty of Applied Sciences and Technology (FAST)
-    if (/PROGRAMMING|SOFTWARE|DATABASE|COMPUTER|DATA SCIENCE|ARTIFICIAL INTELLIGENCE|ALGORITHM|OPERATING SYSTEM|INFORMATION SECURITY|NETWORKING|CYBER|WEB APPLICATION|PYTHON|JAVA|\bC\+\+|COMPUTING|LITERACY/i.test(upper)) {
+    if (/PROGRAMMING|SOFTWARE|DATABASE|COMPUTER|DATA SCIENCE|ARTIFICIAL INTELLIGENCE|ALGORITHM|OPERATING SYSTEM|INFORMATION SECURITY|NETWORKING|CYBER|WEB APPLICATION|PYTHON|JAVA|\bC\+\+|COMPUTING|LITERACY|AUTOCAD|CAD CAM|MULTIMEDIA/i.test(upper)) {
       return {
         deptName: 'DEPARTMENT OF COMPUTER SCIENCE',
         deptIdNumber: 'DOCS',
@@ -283,7 +298,7 @@ export class MoodleService {
         facultyIdNumber: 'FAST',
       };
     }
-    if (/STATISTICS|CALCULUS|PROBABILITY|MATHEMATICS|STOCHASTIC|LINEAR ALGEBRA|DIFFERENTIAL EQUATION|QUANTITATIVE|OPERATIONS RESEARCH|DEMOGRAPHY/i.test(upper)) {
+    if (/STATISTICS|CALCULUS|PROBABILITY|MATHEMATICS|STOCHASTIC|LINEAR ALGEBRA|DIFFERENTIAL EQUATION|QUANTITATIVE|OPERATIONS RESEARCH|DEMOGRAPHY|ENGINEERING MATHEMATICS/i.test(upper)) {
       return {
         deptName: 'DEPARTMENT OF MATHEMATICS AND STATISTICS',
         deptIdNumber: 'DOMS',
@@ -317,7 +332,7 @@ export class MoodleService {
         facultyIdNumber: 'FOE',
       };
     }
-    if (/MECHANICAL|INTERNAL COMBUSTION|AUTOMOTIVE|VEHICLE|CHASSIS|THERMODYNAMICS|FLUID MECHANICS|MACHINE DESIGN|METROLOGY|MANUFACTURING TECHNOLOGY/i.test(upper)) {
+    if (/MECHANICAL|INTERNAL COMBUSTION|AUTOMOTIVE|VEHICLE|CHASSIS|THERMODYNAMICS|FLUID MECHANICS|MACHINE DESIGN|METROLOGY|MANUFACTURING TECHNOLOGY|STRENGTH OF MATERIALS|BASIC MECHANICS|ENGINEERING DRAWING|WORKSHOP PRACTICE|PNEUMATICS/i.test(upper)) {
       return {
         deptName: 'DEPARTMENT OF MECHANICAL ENGINEERING',
         deptIdNumber: 'DOME',
@@ -990,6 +1005,96 @@ export class MoodleService {
       };
     } catch (err: any) {
       this.logger.error(`Error during Moodle LMS purge: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async getComprehensiveUsageReport(year?: string, term?: string) {
+    if (this.isMock) return { success: true, data: [], isMock: true };
+    this.logger.log('Generating Comprehensive LMS Usage Report...');
+    try {
+      const allCategories = await this.callMoodle('core_course_get_categories', {});
+      const allCourses = await this.callMoodle('core_course_get_courses', {});
+      if (!Array.isArray(allCategories) || !Array.isArray(allCourses)) {
+         return { success: false, error: 'Could not fetch Moodle structure' };
+      }
+
+      // Build Category Map
+      const catMap = new Map<number, any>();
+      allCategories.forEach(c => catMap.set(c.id, c));
+
+      const reportData: any[] = [];
+      const targetYear = year || '2026/2027';
+
+      // Iterate over courses (skipping site home course id 1)
+      for (const course of allCourses) {
+        if (course.id === 1) continue;
+        
+        let cat = catMap.get(course.categoryid);
+        let deptName = 'Uncategorized';
+        let facName = 'Unknown Faculty';
+        let ayName = '';
+        
+        // Traverse upwards to find Dept, Fac, AY
+        while (cat) {
+            const upName = cat.name.toUpperCase();
+            if (upName.includes('DEPARTMENT') || upName.includes('SCHOOL')) deptName = cat.name;
+            if (upName.includes('FACULTY') || upName.includes('BUSINESS SCHOOL')) facName = cat.name;
+            if (upName.includes('ACADEMIC YEAR')) ayName = cat.name;
+            cat = cat.parent ? catMap.get(cat.parent) : null;
+        }
+
+        // Filter by year if specified
+        if (ayName && !ayName.includes(targetYear)) continue;
+
+        let materialsCount = 0;
+        let assessmentsCount = 0;
+        
+        try {
+           const contents = await this.callMoodle('core_course_get_contents', { courseid: course.id });
+           if (Array.isArray(contents)) {
+               for (const section of contents) {
+                   if (Array.isArray(section.modules)) {
+                       for (const mod of section.modules) {
+                           const m = mod.modname;
+                           if (['resource', 'folder', 'url', 'page', 'book', 'label'].includes(m)) materialsCount++;
+                           if (['assign', 'quiz', 'forum', 'workshop'].includes(m)) assessmentsCount++;
+                       }
+                   }
+               }
+           }
+        } catch(e) {}
+
+        let enrolledCount = 0;
+        let teacherName = 'N/A';
+        try {
+           const users = await this.callMoodle('core_enrol_get_enrolled_users', { courseid: course.id });
+           if (Array.isArray(users)) {
+               enrolledCount = users.length;
+               // Try to find a teacher (roleid 3 or 4) or just grab anyone who isn't a student if roles aren't exposed easily
+               // Since core_enrol_get_enrolled_users returns roles array
+               const teacher = users.find(u => u.roles && u.roles.some((r: any) => r.roleid === 3 || r.roleid === 4 || r.shortname?.includes('teacher') || r.shortname?.includes('editingteacher')));
+               if (teacher) teacherName = teacher.fullname;
+           }
+        } catch(e) {}
+
+        reportData.push({
+            faculty: facName,
+            department: deptName,
+            courseName: course.fullname,
+            courseCode: course.shortname,
+            lecturer: teacherName,
+            studentsEnrolled: enrolledCount,
+            materialsCount,
+            assessmentsCount,
+            hasMaterials: materialsCount > 0 ? 'YES' : 'NO',
+            hasAssessments: assessmentsCount > 0 ? 'YES' : 'NO',
+        });
+      }
+
+      return { success: true, data: reportData };
+    } catch (err: any) {
+      this.logger.error(`Error generating report: ${err.message}`);
       return { success: false, error: err.message };
     }
   }

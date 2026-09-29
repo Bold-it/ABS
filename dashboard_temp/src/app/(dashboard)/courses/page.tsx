@@ -172,7 +172,7 @@ export default function CoursesPage() {
       const csvContent = [
         headers.join(','),
         ...data.map((r: any) => 
-          `"${r.faculty}","${r.department}","${r.courseCode}","${r.courseName}","${r.lecturer}","${r.studentsEnrolled}","${r.materialsCount}","${r.assessmentsCount}"`
+          `"${r.faculty}","${r.department}","${r.courseCode}","${r.courseName}","${r.lecturer}","${r.studentsEnrolled}","${r.hasMaterials} (${r.materialsCount})","${r.hasAssessments} (${r.assessmentsCount})"`
         )
       ].join('\n');
       
@@ -196,7 +196,7 @@ export default function CoursesPage() {
       if (!data || data.length === 0) return alert('No data to export!');
       
       const { default: jsPDF } = await import('jspdf');
-      const { default: autoTable } = await import('jspdf-autotable');
+      await import('jspdf-autotable');
 
       const doc = new jsPDF('landscape');
       
@@ -222,11 +222,11 @@ export default function CoursesPage() {
         r.courseName,
         r.lecturer,
         r.studentsEnrolled,
-        r.materialsCount,
-        r.assessmentsCount
+        `${r.hasMaterials} (${r.materialsCount})`,
+        `${r.hasAssessments} (${r.assessmentsCount})`
       ]);
 
-      autoTable(doc, {
+      (doc as any).autoTable({
         startY: 40,
         head: [['Faculty', 'Department', 'Course Code', 'Course Name', 'Lecturer', 'Students', 'Materials', 'Assessments']],
         body: tableBody,

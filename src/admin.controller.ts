@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Delete, Body, Param, Query, Logger, UseGuards } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OnboardingService } from './onboarding.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Student, StudentState } from './student.entity';
@@ -21,7 +22,8 @@ export class AdminController {
     private moodleService: MoodleService,
     private emailService: EmailService,
     private soisService: SoisService,
-    private moodleQueue: MoodleQueueService
+    private moodleQueue: MoodleQueueService,
+    private configService: ConfigService
   ) {}
 
   @Get('stats')
@@ -49,12 +51,17 @@ export class AdminController {
     }
 
     const lmsStatus = await this.moodleService.checkConnection();
+    const smsMock = this.configService.get('SMS_MOCK_MODE') !== 'false' ? 'mock_mode' : 'connected';
+    const financeMock = this.configService.get('FINANCE_MOCK_MODE') === 'true' ? 'mock_mode' : 'connected';
+    const googleMock = this.configService.get('GOOGLE_WORKSPACE_MOCK_MODE') === 'true' ? 'mock_mode' : 'connected';
 
     return {
-      postgres: dbStatus,
+      mysql: dbStatus,
       redis: 'connected',
-      finance: 'connected',
-      lms: lmsStatus ? 'connected' : 'failed'
+      finance: financeMock,
+      sms: smsMock,
+      google: googleMock,
+      lms: lmsStatus === 'mock_mode' ? 'mock_mode' : (lmsStatus ? 'connected' : 'failed')
     };
   }
 
@@ -123,6 +130,85 @@ export class AdminController {
       console.error('Error fetching audit logs:', err);
       return [];
     }
+  }
+
+  @Get('jobs/failed')
+  async getFailedJobs() {
+    try {
+      // Find logs with FAILED actions
+      const logs = await this.auditLogRepo.createQueryBuilder('log')
+        .where('log.action LIKE :failed', { failed: '%_FAILED%' })
+        .orderBy('log.timestamp', 'DESC')
+        .take(100)
+        .getMany();
+
+      // Find students whose moodleAccountCreated is false but state is ADMITTED/ACTIVE
+      const pendingStudents = await this.studentRepo.createQueryBuilder('student')
+        .where('student.moodleAccountCreated = false')
+        .andWhere('student.state IN (:...states)', { states: [StudentState.ADMITTED, StudentState.ACTIVE] })
+        .getMany();
+
+      const studentMap = new Map<string, any>();
+      const allStudentIds = [...logs.map(l => l.studentId).filter(id => id), ...pendingStudents.map(s => s.id)];
+      
+      if (allStudentIds.length > 0) {
+        const students = await this.studentRepo.createQueryBuilder('s')
+          .where('s.id IN (:...ids)', { ids: allStudentIds })
+          .select(['s.id', 's.fullName', 's.indexNumber', 's.admissionId', 's.programme'])
+          .getMany();
+        students.forEach(s => studentMap.set(s.id, s));
+      }
+
+      const formattedLogs = logs.map(log => ({
+        id: log.id,
+        type: 'LOG',
+        action: log.action,
+        details: log.details,
+        timestamp: log.timestamp,
+        student: log.studentId ? (studentMap.get(log.studentId) || null) : null,
+      }));
+
+      const formattedPending = pendingStudents.map(student => ({
+        id: `pending-${student.id}`,
+        type: 'PENDING_ONBOARDING',
+        action: 'ONBOARDING_PENDING',
+        details: 'Moodle account creation is pending for this student.',
+        timestamp: student.createdAt,
+        student: studentMap.get(student.id) || student,
+      }));
+
+      return [...formattedLogs, ...formattedPending].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    } catch (err) {
+      console.error('Error fetching failed jobs:', err);
+      return [];
+    }
+  }
+
+  @Post('jobs/:id/retry')
+  async retryJob(@Param('id') id: string) {
+    let studentId = '';
+    
+    if (id.startsWith('pending-')) {
+      studentId = id.replace('pending-', '');
+    } else {
+      const log = await this.auditLogRepo.findOne({ where: { id: parseInt(id) } as any });
+      if (!log || !log.studentId) throw new Error('Job not found or has no associated student');
+      studentId = log.studentId;
+    }
+
+    const student = await this.studentRepo.findOne({ where: { id: studentId } as any });
+    if (!student) throw new Error('Student not found');
+
+    await this.onboardingService.onboardStudent(student);
+
+    const newLog = new AuditLog();
+    newLog.studentId = student.id;
+    newLog.action = 'MANUAL_RETRY_TRIGGERED';
+    newLog.details = `Admin manually retried failed job/pending onboarding for student.`;
+    newLog.timestamp = new Date();
+    await this.auditLogRepo.save(newLog);
+
+    return { success: true, message: 'Retry triggered successfully' };
   }
 
   @Get('students')
@@ -208,6 +294,11 @@ export class AdminController {
   @Post('moodle/purge-lms')
   async purgeMoodleLms() {
     return this.moodleService.purgeMoodleLmsCoursesAndCategories();
+  }
+
+  @Get('reports/lms-usage')
+  async getLmsUsageReport(@Query('year') year?: string, @Query('term') term?: string) {
+    return this.moodleService.getComprehensiveUsageReport(year, term);
   }
 
   @Get('debug-sois')

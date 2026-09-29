@@ -17,9 +17,12 @@ export class MoodleQueueService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
+    // Run immediately on startup to recover any jobs lost during a server restart
+    this.runAutoSweep().catch(err => this.logger.error(`Initial sweep failed: ${err.message}`));
+
     // Auto-sweep every 10 minutes (600,000 ms)
     setInterval(() => {
-      this.runAutoSweep();
+      this.runAutoSweep().catch(err => this.logger.error(`Auto sweep failed: ${err.message}`));
     }, 600000);
   }
 
@@ -73,9 +76,10 @@ export class MoodleQueueService implements OnModuleInit {
 
   private async runAutoSweep() {
       this.logger.log('Running Auto-Recovery Sweep...');
-      const stuckStudents = await this.studentRepo.find({ 
-          where: { moodleAccountCreated: false } 
-      });
+      const stuckStudents = await this.studentRepo.createQueryBuilder('s')
+          .where('s.moodleAccountCreated = :created', { created: false })
+          .andWhere('s.state IN (:...states)', { states: ['ADMITTED', 'ACTIVE'] })
+          .getMany();
       if (stuckStudents.length > 0) {
           this.logger.log(`Auto-Sweep: Found ${stuckStudents.length} stuck students.`);
           for (const s of stuckStudents) {

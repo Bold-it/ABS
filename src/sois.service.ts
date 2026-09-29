@@ -35,18 +35,26 @@ export class SoisService {
 
     this.logger.log(`Syncing mounted courses from SOIS: year=${targetYear}, term=${targetTerm}`);
 
-    const params = new URLSearchParams();
-    params.append('token', this.token);
-    params.append('year', targetYear);
-    params.append('term', targetTerm);
-    params.append('action', 'mounted_courses');
+    let staffDirectory: Record<string, { name: string; email: string }> = {};
+    try {
+      staffDirectory = require('./staff-directory.json');
+    } catch (e) {
+      this.logger.warn('staff-directory.json not found or invalid. Skipping local lecturer lookup.');
+    }
+
+    const FormData = require('form-data');
+    const form = new FormData();
+    form.append('token', this.token);
+    form.append('year', targetYear);
+    form.append('term', targetTerm);
+    form.append('action', 'mounted_courses');
 
     let coursesList: any[] = [];
     let rawSoisSnippet: any = null;
 
     try {
-      const response = await axios.post(this.soisUrl, params, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      const response = await axios.post(this.soisUrl, form, {
+        headers: { ...form.getHeaders() },
         httpsAgent: new https.Agent({ rejectUnauthorized: false }),
         timeout: 20000,
       });
@@ -83,10 +91,20 @@ export class SoisService {
     const validCourseCodes: string[] = [];
 
     for (const item of coursesList) {
-      const courseCode = (item.coursecode || item.course_code || item.code || item.courseCode || item.course_id || '').trim();
-      const courseName = (item.course || item.course_name || item.title || item.courseName || courseCode).trim();
-      const lecturerName = (item.lecturer || item.lecturer_name || item.teacher || item.instructor || '').trim() || null;
-      const lecturerEmail = (item.lecturer_email || item.teacher_email || '').trim() || null;
+      const courseCode = (item.actual_course_code || item.coursecode || item.course_code || item.code || item.courseCode || item.course_id || '').trim();
+      const courseName = (item.actual_course_name || item.course || item.course_name || item.title || item.courseName || courseCode).trim();
+      const originalLecturerRaw = (item.lecturer_name || item.lecturer || item.teacher || item.instructor || '').trim() || null;
+      let lecturerName = originalLecturerRaw;
+      let lecturerEmail = (item.lecturer_email || item.teacher_email || '').trim() || null;
+
+      // If lecturer is passed as a numeric ID, resolve it from the static staff directory
+      if (lecturerName && /^\d+$/.test(lecturerName)) {
+        const staff = staffDirectory[lecturerName];
+        if (staff) {
+          lecturerName = staff.name || lecturerName;
+          lecturerEmail = staff.email || lecturerEmail;
+        }
+      }
       const level = String(item.level || item.year_group || '100');
       const programme = (item.programme || item.program || item.department || '').trim() || null;
 
@@ -123,6 +141,23 @@ export class SoisService {
             }
           } catch (catErr: any) {
             this.logger.warn(`Could not update category for ${courseCode}: ${catErr.message}`);
+          }
+        }
+
+        // Enroll Lecturer in Moodle
+        if (moodleCourseId && lecturerName && originalLecturerRaw) {
+          try {
+            const moodleTeacherId = await this.moodleService.createUser({
+              indexNumber: originalLecturerRaw, // Automatically sanitized to a username inside createUser
+              schoolEmail: lecturerEmail || `${originalLecturerRaw.replace(/\s+/g, '').toLowerCase()}@htu.edu.gh`,
+              fullName: lecturerName
+            });
+            if (moodleTeacherId && moodleTeacherId !== 99999) {
+              await this.moodleService.enrollTeacher(String(moodleTeacherId), moodleCourseId);
+              this.logger.log(`Enrolled lecturer ${lecturerName} in Moodle course ${courseCode}`);
+            }
+          } catch (e: any) {
+            this.logger.warn(`Failed to enroll lecturer ${lecturerName} in Moodle course ${courseCode}: ${e.message}`);
           }
         }
 
@@ -298,15 +333,16 @@ export class SoisService {
 
     this.logger.log(`Fetching admitted students from SOIS endpoint: action=${action}, year=${targetYear}, term=${targetTerm}`);
 
-    const params = new URLSearchParams();
-    params.append('token', this.token);
-    params.append('year', targetYear);
-    params.append('term', targetTerm);
-    params.append('action', action);
+    const FormData = require('form-data');
+    const form = new FormData();
+    form.append('token', this.token);
+    form.append('year', targetYear);
+    form.append('term', targetTerm);
+    form.append('action', action);
 
     try {
-      const response = await axios.post(this.soisUrl, params, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      const response = await axios.post(this.soisUrl, form, {
+        headers: { ...form.getHeaders() },
         httpsAgent: new https.Agent({ rejectUnauthorized: false }),
         timeout: 25000,
       });
@@ -408,18 +444,19 @@ export class SoisService {
     const targetYear = year || '2025/2026';
     const targetTerm = term || '1';
 
-    const params = new URLSearchParams();
-    params.append('token', this.token);
-    params.append('year', targetYear);
-    params.append('term', targetTerm);
-    params.append('action', 'admitted_students');
+    const FormData = require('form-data');
+    const form = new FormData();
+    form.append('token', this.token);
+    form.append('year', targetYear);
+    form.append('term', targetTerm);
+    form.append('action', 'admitted_students');
 
     let soisList: any[] = [];
     let errorMsg: string | null = null;
 
     try {
-      const response = await axios.post(this.soisUrl, params, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      const response = await axios.post(this.soisUrl, form, {
+        headers: { ...form.getHeaders() },
         httpsAgent: new https.Agent({ rejectUnauthorized: false }),
         timeout: 25000,
       });
