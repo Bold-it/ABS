@@ -11,15 +11,32 @@ function StudentsListContent() {
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState(initialStatus);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  
   const router = useRouter();
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setPage(1); // Reset to page 1 on new search
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
   const fetchStudents = async () => {
+    setLoading(true);
     const token = localStorage.getItem('abs_token');
     const url = new URL('/api/admin/students', window.location.origin);
-    if (searchTerm) url.searchParams.append('search', searchTerm);
+    if (debouncedSearchTerm) url.searchParams.append('search', debouncedSearchTerm);
     if (filterStatus) url.searchParams.append('status', filterStatus);
+    url.searchParams.append('page', page.toString());
+    url.searchParams.append('limit', '50');
 
     try {
       const res = await fetch(url.toString(), {
@@ -27,6 +44,8 @@ function StudentsListContent() {
       });
       const data = await res.json();
       setStudents(data.items || []);
+      setTotalPages(data.totalPages || 1);
+      setTotalCount(data.total || 0);
     } catch (err) {
       console.error(err);
     } finally {
@@ -181,7 +200,7 @@ function StudentsListContent() {
 
   useEffect(() => {
     fetchStudents();
-  }, [searchTerm, filterStatus]);
+  }, [debouncedSearchTerm, filterStatus, page]);
 
   const openDrawer = async (student: any) => {
     const token = localStorage.getItem('abs_token');
@@ -404,6 +423,32 @@ function StudentsListContent() {
               ))}
             </tbody>
           </table>
+        </div>
+        
+        {/* Pagination Controls */}
+        <div className="p-4 border-t border-gray-100 flex items-center justify-between bg-gray-50">
+          <div className="text-xs font-bold text-gray-500">
+            Showing {students.length} of {totalCount} students
+          </div>
+          <div className="flex gap-2">
+            <button 
+              disabled={page <= 1}
+              onClick={() => setPage(p => p - 1)}
+              className="px-4 py-2 bg-white border border-gray-200 text-gray-500 text-[10px] font-black rounded-lg hover:bg-gray-50 transition-all uppercase disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Prev
+            </button>
+            <div className="px-4 py-2 text-[10px] font-black text-gray-400 uppercase flex items-center">
+              Page {page} of {totalPages}
+            </div>
+            <button 
+              disabled={page >= totalPages}
+              onClick={() => setPage(p => p + 1)}
+              className="px-4 py-2 bg-white border border-gray-200 text-gray-500 text-[10px] font-black rounded-lg hover:bg-gray-50 transition-all uppercase disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 

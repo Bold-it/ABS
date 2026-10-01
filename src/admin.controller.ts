@@ -212,7 +212,16 @@ export class AdminController {
   }
 
   @Get('students')
-  async getAllStudents(@Query('search') search?: string, @Query('status') status?: string) {
+  async getAllStudents(
+    @Query('search') search?: string, 
+    @Query('status') status?: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '50'
+  ) {
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 50;
+    const skip = (pageNum - 1) * limitNum;
+
     const query = this.studentRepo.createQueryBuilder('student');
     if (search) {
       query.andWhere('(student.fullName LIKE :search OR student.indexNumber LIKE :search)', { search: `%${search}%` });
@@ -220,8 +229,18 @@ export class AdminController {
     if (status) {
       query.andWhere('student.state = :status', { status });
     }
+
+    const total = await query.getCount();
+    query.skip(skip).take(limitNum);
     const items = await query.getMany();
-    return { items };
+
+    return { 
+      items, 
+      total, 
+      page: pageNum, 
+      limit: limitNum, 
+      totalPages: Math.ceil(total / limitNum) 
+    };
   }
 
   @Get('students/:id')
