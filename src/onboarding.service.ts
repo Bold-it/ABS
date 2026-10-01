@@ -41,15 +41,22 @@ export class OnboardingService {
         await this.logAction(student.id, 'MOODLE_ACCOUNT_CREATED', `Moodle ID: ${moodleId}`);
       }
 
-      // 3. Update State to ACTIVE
-      if (student.state !== StudentState.ACTIVE) {
-        student.state = StudentState.ACTIVE;
+      // 3. Default to RESTRICTED so they are forced to register courses before LMS access
+      if (student.state === StudentState.ADMITTED) {
+        student.state = StudentState.RESTRICTED;
         await this.studentRepo.save(student);
-        await this.logAction(student.id, 'STUDENT_ACTIVATED', 'Student moved to ACTIVE state');
+        await this.logAction(student.id, 'STUDENT_RESTRICTED', 'Student restricted pending course registration');
+        
+        // Ensure they are actually suspended in Moodle
+        await this.handleSuspension(student);
 
-        // 4. Send Welcome SMS
-        const msg = `Hi ${student.fullName}, welcome to HTU! Your LMS account is ready. Login at lms.htu.edu.gh with your index number. Password: Student@123`;
-        await this.smsService.sendSms(student.phone, msg);
+        // 4. Send Welcome SMS instructing them to register ONLY to freshers (0326)
+        if (student.indexNumber && student.indexNumber.includes('0326')) {
+          const msg = `Hi ${student.fullName}, welcome to HTU! Your LMS account is created. Login at lms.htu.edu.gh with your index number (Password: Student@123). Please register your courses on the Student Portal to unlock access.`;
+          await this.smsService.sendSms(student.phone, msg);
+        } else {
+          this.logger.log(`Skipping Welcome SMS for continuing/legacy student: ${student.indexNumber}`);
+        }
       }
 
     } catch (error) {
