@@ -48,7 +48,7 @@ export class OnboardingService {
         await this.logAction(student.id, 'STUDENT_ACTIVATED', 'Student moved to ACTIVE state');
 
         // 4. Send Welcome SMS
-        const msg = `Hi ${student.fullName}, welcome to HTU! Your LMS account is ready. Login at lms.htu.edu.gh with your index number.`;
+        const msg = `Hi ${student.fullName}, welcome to HTU! Your LMS account is ready. Login at lms.htu.edu.gh with your index number. Password: Student@123`;
         await this.smsService.sendSms(student.phone, msg);
       }
 
