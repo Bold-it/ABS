@@ -33,13 +33,7 @@ export class AdminController {
     const active = await this.studentRepo.count({ where: { state: StudentState.ACTIVE } });
     const restricted = await this.studentRepo.count({ where: { state: StudentState.RESTRICTED } });
     const provisioned = await this.studentRepo.count({ where: { moodleAccountCreated: true } });
-    const { Like } = require('typeorm');
-    const provisionedFreshers = await this.studentRepo.count({ 
-        where: { 
-            moodleAccountCreated: true, 
-            indexNumber: Like('%0326%') 
-        } 
-    });
+    const provisionedFreshers = active + restricted;
     
     return {
       total,
