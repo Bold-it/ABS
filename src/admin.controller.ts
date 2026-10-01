@@ -32,12 +32,16 @@ export class AdminController {
     const admitted = await this.studentRepo.count({ where: { state: StudentState.ADMITTED } });
     const active = await this.studentRepo.count({ where: { state: StudentState.ACTIVE } });
     const restricted = await this.studentRepo.count({ where: { state: StudentState.RESTRICTED } });
+    const provisioned = await this.studentRepo.count({ where: { moodleAccountCreated: true } });
+    const provisionedFreshers = await this.studentRepo.count({ where: { moodleAccountCreated: true, level: '100' } });
     
     return {
       total,
       admitted,
       active,
-      restricted
+      restricted,
+      provisioned,
+      provisionedFreshers
     };
   }
 

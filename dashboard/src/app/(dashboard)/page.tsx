@@ -81,11 +81,12 @@ export default function DashboardPage() {
         </div>
       )}
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
         <StatCard title="Total Students" value={stats?.total} icon="👥" color="bg-blue-500" href="/students" />
-        <StatCard title="Admitted" value={stats?.admitted} icon="📝" color="bg-amber-500" href="/students?status=ADMITTED" />
         <StatCard title="Active Enrolled" value={stats?.active} icon="✅" color="bg-green-500" href="/students?status=ACTIVE" />
         <StatCard title="Restricted" value={stats?.restricted} icon="🚫" color="bg-red-500" href="/students?status=RESTRICTED" />
+        <StatCard title="Provisioned Freshers" value={stats?.provisionedFreshers} icon="🎓" color="bg-purple-500" href="/students" />
+        <StatCard title="Admitted (Pending)" value={stats?.admitted} icon="⏳" color="bg-amber-500" href="/students?status=ADMITTED" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

@@ -64,13 +64,21 @@ export default function RolloverPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
           <div className="h-12 w-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4 text-2xl">
             📊
           </div>
           <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">Total Students</p>
           <p className="text-4xl font-bold text-gray-900">{loading ? "..." : stats.total}</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-purple-100 flex flex-col items-center justify-center text-center">
+          <div className="h-12 w-12 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center mb-4 text-2xl">
+            🎓
+          </div>
+          <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">Provisioned Freshers</p>
+          <p className="text-4xl font-bold text-purple-600">{loading ? "..." : stats.provisionedFreshers || 0}</p>
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-emerald-100 flex flex-col items-center justify-center text-center relative overflow-hidden">
