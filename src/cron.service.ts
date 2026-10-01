@@ -1,12 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { EmailService } from './email.service';
-
+import { SoisService } from './sois.service';
 @Injectable()
 export class CronService {
   private readonly logger = new Logger(CronService.name);
 
-  constructor(private emailService: EmailService) {}
+  constructor(
+    private emailService: EmailService,
+    private soisService: SoisService
+  ) {}
 
   // Run at 08:00 AM on the 1st day of Aug, Sep, Jan, Feb
   @Cron('0 8 1 1,2,8,9 *')
@@ -33,5 +36,27 @@ export class CronService {
     `;
 
     await this.emailService.sendMail(adminEmails, subject, html);
+  }
+
+  // Run at 01:00 AM every day
+  @Cron('0 1 * * *')
+  async handleNightlySync() {
+    this.logger.log('Triggering automated nightly SOIS sync...');
+    const currentYear = new Date().getFullYear();
+    const month = new Date().getMonth(); // 0=Jan
+    const academicYear = month >= 7
+      ? `${currentYear}/${currentYear + 1}`
+      : `${currentYear - 1}/${currentYear}`;
+    const term = month >= 7 || month < 1 ? '1' : '2';
+
+    this.logger.log(`Calculated Year: ${academicYear}, Term: ${term}`);
+    
+    // 1. Sync Courses
+    await this.soisService.syncMountedCourses(academicYear, term);
+    
+    // 2. Sync Students & Enrollments
+    await this.soisService.syncAdmittedStudents(academicYear, term, 'enrollments');
+    
+    this.logger.log('Nightly SOIS sync completed!');
   }
 }
