@@ -10,6 +10,7 @@ const menuItems = [
   { name: 'Mounted Courses', path: '/courses', icon: '📚' },
   { name: 'Audit Logs', path: '/audit-logs', icon: '📜' },
   { name: 'Job Queue', path: '/jobs', icon: '⚙️' },
+  { name: 'Rollover Console', path: '/rollover', icon: '🔄' },
   { name: 'Simulation Lab', path: '/simulation', icon: '🧪' },
   { name: 'Settings', path: '/settings', icon: '🛠️' },
 ];

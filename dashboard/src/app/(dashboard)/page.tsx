@@ -180,22 +180,6 @@ export default function DashboardPage() {
               >
                   Global Status Sync
               </button>
-              <button 
-                  title="Locks out all students at the start of a new academic year. They will only be unsuspended when they register for courses on SOIS."
-                  onClick={async () => {
-                      if(!confirm('ATTENTION: This will restrict access for ALL active students immediately. They will remain locked out of Moodle until they register for courses. Proceed?')) return;
-                      const token = localStorage.getItem('abs_token');
-                      const res = await fetch('/api/admin/academic-year/rollover', {
-                          method: 'POST',
-                          headers: { Authorization: `Bearer ${token}` }
-                      });
-                      const data = await res.json();
-                      alert(data.message || 'Rollover triggered successfully.');
-                  }}
-                  className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black rounded-lg hover:shadow-lg transition-all uppercase tracking-widest"
-              >
-                  Trigger Rollover
-              </button>
             </div>
           </div>
         </div>
