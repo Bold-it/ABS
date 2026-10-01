@@ -152,7 +152,7 @@ export default function DashboardPage() {
                         const res = await fetch('/api/admin/courses/sync-sois', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                            body: JSON.stringify({ year: '2025/2026', term: '1' })
+                            body: JSON.stringify({ year: '2026/2027', term: '1' })
                         });
                         const data = await res.json();
                         alert(`SOIS Course Sync Complete!\nTotal Fetched: ${data.totalFetched || 0}\nCourses Created: ${data.coursesCreated || 0}\nCourses Already Existed: ${data.coursesExisting || 0}`);

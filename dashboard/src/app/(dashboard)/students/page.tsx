@@ -234,7 +234,7 @@ function StudentsListContent() {
   };
 
   const handleSyncSoisAdmissions = async () => {
-    if (!confirm('Pull and onboard past uncaptured admitted students from SOIS?\n\nABS will automatically:\n1. Provision their @htu.edu.gh Google Workspace emails\n2. Create their Moodle LMS accounts\n3. Activate their status\n4. Send them a Welcome SMS with credentials!')) return;
+    if (!confirm('Pull and onboard past uncaptured admitted students from SOIS?\n\nABS will automatically:\n1. Provision their @htu.edu.gh Google Workspace emails\n2. Create their Moodle LMS accounts\n3. Restrict their status initially\n4. Send Freshers (0326) a Welcome SMS with credentials!')) return;
     const token = localStorage.getItem('abs_token');
     try {
       const res = await fetch('/api/admin/students/sync-sois-admissions', {
