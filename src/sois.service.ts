@@ -371,6 +371,7 @@ export class SoisService {
         const level = String(item.level || item.year || '100');
         const phone = item.phone || item.mobile || item.telephone || '';
         const email = item.email || item.personal_email || '';
+        const rawStatus = String(item.status || item.state || item.academic_status || '').toUpperCase();
 
         if (!indexNumber && !admissionId) continue;
 
@@ -399,18 +400,41 @@ export class SoisService {
             });
             await this.studentRepo.save(student);
             newAdmittedCount++;
-
-            // Trigger immediate automated onboarding for past student!
-            this.logger.log(`Onboarding uncaptured past student: ${fullName} (${indexNumber})`);
-            await this.onboardingService.onboardStudent(student);
-            onboardedCount++;
           } else {
             existingCount++;
-            // If student exists but hasn't completed onboarding / Moodle account, finish onboarding!
-            if (!student.moodleAccountCreated || student.state !== StudentState.ACTIVE) {
-              await this.onboardingService.onboardStudent(student);
-              onboardedCount++;
-            }
+          }
+
+          // Process Transactional Status Changes
+          let targetState: StudentState | null = null;
+          if (['GRADUATED', 'ALUMNI', 'COMPLETED', 'DONE'].some(s => rawStatus.includes(s))) {
+            targetState = StudentState.GRADUATED;
+          } else if (['DEFERRED', 'SUSPENDED', 'RUSTICATED', 'INACTIVE'].some(s => rawStatus.includes(s))) {
+            targetState = StudentState.RESTRICTED;
+          } else if (['ACTIVE', 'REGISTERED', 'CURRENT'].some(s => rawStatus.includes(s))) {
+            targetState = StudentState.ACTIVE;
+          }
+
+          // Ensure basic onboarding is completed if they need a Moodle account
+          if (!student.moodleAccountCreated && targetState !== StudentState.GRADUATED) {
+             this.logger.log(`Onboarding uncaptured/incomplete student: ${fullName} (${indexNumber})`);
+             await this.onboardingService.onboardStudent(student);
+             onboardedCount++;
+          }
+
+          // Apply state transitions if defined by SOIS and differing from ABS
+          if (targetState && student.state !== targetState) {
+             this.logger.log(`Status change detected for ${indexNumber}: ${student.state} -> ${targetState}`);
+             if (targetState === StudentState.GRADUATED) {
+                await this.onboardingService.handleGraduation(student, 'Completed');
+                student.state = StudentState.GRADUATED;
+             } else if (targetState === StudentState.RESTRICTED) {
+                await this.onboardingService.handleSuspension(student);
+                student.state = StudentState.RESTRICTED;
+             } else if (targetState === StudentState.ACTIVE) {
+                await this.onboardingService.handleUnsuspension(student);
+                student.state = StudentState.ACTIVE;
+             }
+             await this.studentRepo.save(student);
           }
         } catch (err) {
           this.logger.error(`Error processing student ${indexNumber}: ${err.message}`);
