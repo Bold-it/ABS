@@ -21,6 +21,7 @@ export class SoisService {
     private configService: ConfigService,
     private moodleService: MoodleService,
     private onboardingService: OnboardingService,
+    private moodleQueueService: import('./moodle-queue.service').MoodleQueueService,
     @InjectRepository(Student)
     private studentRepo: Repository<Student>,
     @InjectRepository(MountedCourse)
@@ -416,8 +417,8 @@ export class SoisService {
 
           // Ensure basic onboarding is completed if they need a Moodle account
           if (!student.moodleAccountCreated && targetState !== StudentState.GRADUATED) {
-             this.logger.log(`Onboarding uncaptured/incomplete student: ${fullName} (${indexNumber})`);
-             await this.onboardingService.onboardStudent(student);
+             this.logger.log(`Queuing onboarding for student: ${fullName} (${indexNumber})`);
+             await this.moodleQueueService.addJob('ONBOARD_STUDENT', { studentId: student.id });
              onboardedCount++;
           }
 
