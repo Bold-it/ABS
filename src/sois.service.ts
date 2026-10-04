@@ -410,7 +410,7 @@ export class SoisService {
             targetState = StudentState.GRADUATED;
           } else if (['DEFERRED', 'SUSPENDED', 'RUSTICATED', 'INACTIVE'].some(s => rawStatus.includes(s))) {
             targetState = StudentState.RESTRICTED;
-          } else if (['ACTIVE', 'REGISTERED', 'CURRENT'].some(s => rawStatus.includes(s))) {
+          } else if (['REGISTERED'].some(s => rawStatus.includes(s))) {
             targetState = StudentState.ACTIVE;
           }
 
