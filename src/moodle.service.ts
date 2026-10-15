@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as https from 'https';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class MoodleService {
@@ -10,6 +12,17 @@ export class MoodleService {
   private readonly token: string;
   private readonly isMock: boolean;
   private readonly defaultCategory: number;
+
+  private reportSnapshotCache = new Map<string, any>();
+  private reportProgress = {
+    isGenerating: false,
+    progress: 0,
+    total: 0,
+    currentStep: 'Idle',
+    startedAt: null as string | null,
+    updatedAt: null as string | null,
+    error: null as string | null,
+  };
 
   constructor(private configService: ConfigService) {
     this.baseUrl = this.configService.get<string>('MOODLE_URL');
@@ -1261,101 +1274,420 @@ export class MoodleService {
     }
   }
 
-  async getComprehensiveUsageReport(year?: string, term?: string) {
-    if (this.isMock) return { success: true, data: [], isMock: true };
-    this.logger.log('Generating Comprehensive LMS Usage Report...');
+  getReportGenerationProgress() {
+    return { ...this.reportProgress };
+  }
+
+  async triggerBackgroundReportGeneration(year?: string, term?: string) {
+    const targetYear = year || '2026/2027';
+    const targetTerm = term || '1';
+
+    if (this.reportProgress.isGenerating) {
+      return {
+        success: true,
+        alreadyRunning: true,
+        message: 'A report generation task is already in progress.',
+        progress: this.reportProgress
+      };
+    }
+
+    // Trigger asynchronously in background
+    setTimeout(() => {
+      this.generateAndSaveLmsUsageReport(targetYear, targetTerm).catch(err => {
+        this.logger.error(`Background report generation error: ${err.message}`);
+        this.reportProgress.isGenerating = false;
+        this.reportProgress.error = err.message;
+      });
+    }, 50);
+
+    return {
+      success: true,
+      alreadyRunning: false,
+      message: 'Background LMS audit initiated.',
+      year: targetYear,
+      term: targetTerm
+    };
+  }
+
+  private getSnapshotFilePath(year: string, term: string): string {
+    const dir = path.join(process.cwd(), 'report-snapshots');
+    if (!fs.existsSync(dir)) {
+      try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {}
+    }
+    const safeYear = year.replace(/[\/\\:]/g, '-');
+    return path.join(dir, `lms_report_${safeYear}_sem${term}.json`);
+  }
+
+  async getOrGenerateLmsUsageReport(year?: string, term?: string) {
+    const targetYear = year || '2026/2027';
+    const targetTerm = term || '1';
+    const cacheKey = `${targetYear}_${targetTerm}`;
+
+    // 1. Check in-memory cache
+    if (this.reportSnapshotCache.has(cacheKey)) {
+      return this.reportSnapshotCache.get(cacheKey);
+    }
+
+    // 2. Check disk cache
+    const filePath = this.getSnapshotFilePath(targetYear, targetTerm);
+    if (fs.existsSync(filePath)) {
+      try {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        this.reportSnapshotCache.set(cacheKey, parsed);
+        return parsed;
+      } catch (err: any) {
+        this.logger.warn(`Failed reading snapshot file ${filePath}: ${err.message}`);
+      }
+    }
+
+    // 3. If currently generating, return progress placeholder
+    if (this.reportProgress.isGenerating) {
+      return {
+        success: true,
+        isGenerating: true,
+        progress: this.reportProgress,
+        data: [],
+        summary: null
+      };
+    }
+
+    // 4. If not found and not generating, generate synchronously or return structured baseline
+    return await this.generateAndSaveLmsUsageReport(targetYear, targetTerm);
+  }
+
+  async generateAndSaveLmsUsageReport(year?: string, term?: string) {
+    const targetYear = year || '2026/2027';
+    const targetTerm = term || '1';
+    const cacheKey = `${targetYear}_${targetTerm}`;
+
+    this.logger.log(`[ReportEngine] Starting comprehensive LMS report generation for ${targetYear} Semester ${targetTerm}...`);
+    this.reportProgress = {
+      isGenerating: true,
+      progress: 0,
+      total: 0,
+      currentStep: 'Fetching Moodle course hierarchy and catalog...',
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      error: null
+    };
+
     try {
-      const allCategories = await this.callMoodle('core_course_get_categories', {});
-      const allCourses = await this.callMoodle('core_course_get_courses', {});
-      if (!Array.isArray(allCategories) || !Array.isArray(allCourses)) {
-         return { success: false, error: 'Could not fetch Moodle structure' };
+      if (this.isMock) {
+        const mockSnapshot = {
+          success: true,
+          academicYear: targetYear,
+          semester: targetTerm,
+          generatedAt: new Date().toISOString(),
+          isMock: true,
+          summary: {
+            totalCourses: 787,
+            assignedCount: 718,
+            unassignedCount: 69,
+            complianceRate: 91.2,
+            withMaterialsCount: 580,
+            materialsAdoptionRate: 73.7,
+            withAssessmentsCount: 340,
+            assessmentsAdoptionRate: 43.2,
+            dormantCount: 145,
+            dormantRate: 18.4,
+            totalEnrolledUsers: 2573,
+            maturity: { gold: 310, silver: 270, bronze: 30, dormant: 147 }
+          },
+          faculties: [
+            { name: 'FACULTY OF APPLIED SCIENCES & TECHNOLOGY', code: 'FAST', totalCourses: 215, assignedCount: 202, complianceRate: 94.0, materialsCount: 680, assessmentsCount: 420, dormantCount: 22, enrolledCount: 920 },
+            { name: 'FACULTY OF ENGINEERING', code: 'FOE', totalCourses: 198, assignedCount: 180, complianceRate: 90.9, materialsCount: 540, assessmentsCount: 310, dormantCount: 35, enrolledCount: 840 },
+            { name: 'HTU BUSINESS SCHOOL', code: 'BS', totalCourses: 172, assignedCount: 158, complianceRate: 91.9, materialsCount: 490, assessmentsCount: 280, dormantCount: 28, enrolledCount: 710 },
+            { name: 'FACULTY OF ART & DESIGN', code: 'FOAD', totalCourses: 120, assignedCount: 105, complianceRate: 87.5, materialsCount: 310, assessmentsCount: 140, dormantCount: 32, enrolledCount: 450 },
+            { name: 'FACULTY OF APPLIED SOCIAL SCIENCES', code: 'FASS', totalCourses: 82, assignedCount: 73, complianceRate: 89.0, materialsCount: 210, assessmentsCount: 95, dormantCount: 30, enrolledCount: 320 }
+          ],
+          departments: [],
+          courses: []
+        };
+        this.reportSnapshotCache.set(cacheKey, mockSnapshot);
+        this.reportProgress.isGenerating = false;
+        this.reportProgress.progress = 100;
+        return mockSnapshot;
       }
 
-      // Build Category Map
+      const allCategories = await this.callMoodle('core_course_get_categories', {});
+      const allCourses = await this.callMoodle('core_course_get_courses', {});
+
+      if (!Array.isArray(allCategories) || !Array.isArray(allCourses)) {
+        throw new Error('Could not fetch Moodle categories or course structure from API');
+      }
+
+      // Build Category lookup Map
       const catMap = new Map<number, any>();
       allCategories.forEach(c => catMap.set(c.id, c));
 
-      const reportData: any[] = [];
-      const targetYear = year || '2026/2027';
-
-      // Iterate over courses (skipping site home course id 1)
+      // Filter target academic year courses (excluding site home course 1)
+      const targetCourses: any[] = [];
       for (const course of allCourses) {
         if (course.id === 1) continue;
-        
+
         let cat = catMap.get(course.categoryid);
         let deptName = 'Uncategorized';
-        let facName = 'Unknown Faculty';
+        let facName = 'General Academic';
         let ayName = '';
-        
-        // Traverse upwards to find Dept, Fac, AY
+
         while (cat) {
-            const upName = cat.name.toUpperCase();
-            if (upName.includes('DEPARTMENT') || upName.includes('SCHOOL')) deptName = cat.name;
-            if (upName.includes('FACULTY') || upName.includes('BUSINESS SCHOOL')) facName = cat.name;
-            if (upName.includes('ACADEMIC YEAR')) ayName = cat.name;
-            cat = cat.parent ? catMap.get(cat.parent) : null;
+          const upName = cat.name.toUpperCase();
+          if (upName.includes('DEPARTMENT') || upName.includes('SCHOOL')) deptName = cat.name;
+          if (upName.includes('FACULTY') || upName.includes('BUSINESS SCHOOL')) facName = cat.name;
+          if (upName.includes('ACADEMIC YEAR')) ayName = cat.name;
+          cat = cat.parent ? catMap.get(cat.parent) : null;
         }
 
-        // Filter by year if specified
         if (ayName && !ayName.includes(targetYear)) continue;
 
-        let materialsCount = 0;
-        let assessmentsCount = 0;
-        
-        try {
-           const contents = await this.callMoodle('core_course_get_contents', { courseid: course.id });
-           if (Array.isArray(contents)) {
-               for (const section of contents) {
-                   if (Array.isArray(section.modules)) {
-                       for (const mod of section.modules) {
-                           const m = mod.modname;
-                           if (['resource', 'folder', 'url', 'page', 'book', 'label'].includes(m)) materialsCount++;
-                           if (['assign', 'quiz', 'forum', 'workshop'].includes(m)) assessmentsCount++;
-                       }
-                   }
-               }
-           }
-        } catch(e) {}
+        targetCourses.push({
+          ...course,
+          deptName,
+          facName,
+          ayName,
+        });
+      }
 
-        let enrolledCount = 0;
-        let teacherName = 'N/A';
-        try {
-           const users = await this.callMoodle('core_enrol_get_enrolled_users', { courseid: course.id });
-           if (Array.isArray(users)) {
-               enrolledCount = users.length;
-               // Try to find a teacher (roleid 3 or 4) or just grab anyone who isn't a student if roles aren't exposed easily
-               // Since core_enrol_get_enrolled_users returns roles array
-               const teacher = users.find(u => u.roles && u.roles.some((r: any) => r.roleid === 3 || r.roleid === 4 || r.shortname?.includes('teacher') || r.shortname?.includes('editingteacher')));
-               if (teacher) {
-                 const cleanName = (teacher.fullname || '').trim();
-                 if (/^\d+(\s+Student)?$/i.test(cleanName)) {
-                   teacherName = 'Unassigned';
-                 } else {
-                   teacherName = cleanName;
-                 }
-               }
-           }
-        } catch(e) {}
+      const totalTarget = targetCourses.length;
+      this.reportProgress.total = totalTarget;
+      this.reportProgress.currentStep = `Auditing ${totalTarget} courses with 10-worker concurrent pool...`;
+      this.logger.log(`[ReportEngine] Filtered ${totalTarget} courses for ${targetYear}. Starting parallel audit pool...`);
 
-        reportData.push({
-            faculty: facName,
-            department: deptName,
+      const reportData: any[] = new Array(totalTarget);
+      let completedCount = 0;
+      const concurrency = 10;
+      let currentIndex = 0;
+
+      const workers = Array.from({ length: Math.min(concurrency, totalTarget) }, async () => {
+        while (currentIndex < totalTarget) {
+          const idx = currentIndex++;
+          const course = targetCourses[idx];
+
+          let materialsCount = 0;
+          let assessmentsCount = 0;
+          let enrolledCount = 0;
+          let teacherName = 'Unassigned';
+
+          // 1. Get Course Contents
+          try {
+            const contents = await this.callMoodle('core_course_get_contents', { courseid: course.id });
+            if (Array.isArray(contents)) {
+              for (const section of contents) {
+                if (Array.isArray(section.modules)) {
+                  for (const mod of section.modules) {
+                    const m = (mod.modname || '').toLowerCase();
+                    if (['resource', 'folder', 'url', 'page', 'book', 'label', 'file'].includes(m)) materialsCount++;
+                    if (['assign', 'quiz', 'forum', 'workshop', 'feedback', 'choice'].includes(m)) assessmentsCount++;
+                  }
+                }
+              }
+            }
+          } catch (e) {}
+
+          // 2. Get Enrolled Users and Teacher
+          try {
+            const users = await this.callMoodle('core_enrol_get_enrolled_users', { courseid: course.id });
+            if (Array.isArray(users)) {
+              enrolledCount = users.length;
+              const teacher = users.find((u: any) =>
+                u.roles && u.roles.some((r: any) =>
+                  r.roleid === 3 || r.roleid === 4 ||
+                  (r.shortname && (r.shortname.includes('teacher') || r.shortname.includes('editingteacher')))
+                )
+              );
+              if (teacher) {
+                const cleanName = (teacher.fullname || '').trim();
+                // Flag numeric placeholders as unassigned
+                if (/^\d+(\s+Student)?$/i.test(cleanName)) {
+                  teacherName = 'Unassigned';
+                } else {
+                  teacherName = cleanName;
+                }
+              }
+            }
+          } catch (e) {}
+
+          let maturityTier = 'DORMANT';
+          if (materialsCount > 0 && assessmentsCount > 0) {
+            maturityTier = 'GOLD';
+          } else if (materialsCount > 0 && assessmentsCount === 0) {
+            maturityTier = 'SILVER';
+          } else if (materialsCount === 0 && assessmentsCount > 0) {
+            maturityTier = 'BRONZE';
+          }
+
+          reportData[idx] = {
+            id: course.id,
+            faculty: course.facName,
+            department: course.deptName,
             courseName: course.fullname,
             courseCode: course.shortname,
             lecturer: teacherName,
+            isAssigned: teacherName !== 'Unassigned' && teacherName !== 'N/A' && !/^\d+$/.test(teacherName),
             studentsEnrolled: enrolledCount,
             materialsCount,
             assessmentsCount,
             hasMaterials: materialsCount > 0 ? 'YES' : 'NO',
             hasAssessments: assessmentsCount > 0 ? 'YES' : 'NO',
-        });
+            maturityTier, // GOLD, SILVER, BRONZE, DORMANT
+          };
+
+          completedCount++;
+          if (completedCount % 25 === 0 || completedCount === totalTarget) {
+            this.reportProgress.progress = completedCount;
+            this.reportProgress.updatedAt = new Date().toISOString();
+          }
+        }
+      });
+
+      await Promise.all(workers);
+
+      // Compute Aggregations
+      const totalCourses = reportData.length;
+      let assignedCount = 0;
+      let withMaterialsCount = 0;
+      let withAssessmentsCount = 0;
+      let dormantCount = 0;
+      let totalEnrolledUsers = 0;
+      const maturity = { gold: 0, silver: 0, bronze: 0, dormant: 0 };
+
+      const facultyMap = new Map<string, any>();
+      const deptMap = new Map<string, any>();
+
+      for (const row of reportData) {
+        if (row.isAssigned) assignedCount++;
+        if (row.materialsCount > 0) withMaterialsCount++;
+        if (row.assessmentsCount > 0) withAssessmentsCount++;
+        if (row.maturityTier === 'DORMANT') dormantCount++;
+        totalEnrolledUsers += row.studentsEnrolled || 0;
+
+        if (row.maturityTier === 'GOLD') maturity.gold++;
+        else if (row.maturityTier === 'SILVER') maturity.silver++;
+        else if (row.maturityTier === 'BRONZE') maturity.bronze++;
+        else maturity.dormant++;
+
+        // Faculty Aggregation
+        const facKey = row.faculty || 'Unknown Faculty';
+        if (!facultyMap.has(facKey)) {
+          facultyMap.set(facKey, {
+            name: facKey,
+            totalCourses: 0,
+            assignedCount: 0,
+            materialsCount: 0,
+            assessmentsCount: 0,
+            dormantCount: 0,
+            enrolledCount: 0,
+          });
+        }
+        const facObj = facultyMap.get(facKey);
+        facObj.totalCourses++;
+        if (row.isAssigned) facObj.assignedCount++;
+        facObj.materialsCount += row.materialsCount;
+        facObj.assessmentsCount += row.assessmentsCount;
+        if (row.maturityTier === 'DORMANT') facObj.dormantCount++;
+        facObj.enrolledCount += row.studentsEnrolled;
+
+        // Department Aggregation
+        const deptKey = row.department || 'Uncategorized';
+        if (!deptMap.has(deptKey)) {
+          deptMap.set(deptKey, {
+            name: deptKey,
+            faculty: facKey,
+            totalCourses: 0,
+            assignedCount: 0,
+            materialsCount: 0,
+            assessmentsCount: 0,
+            dormantCount: 0,
+            enrolledCount: 0,
+          });
+        }
+        const deptObj = deptMap.get(deptKey);
+        deptObj.totalCourses++;
+        if (row.isAssigned) deptObj.assignedCount++;
+        deptObj.materialsCount += row.materialsCount;
+        deptObj.assessmentsCount += row.assessmentsCount;
+        if (row.maturityTier === 'DORMANT') deptObj.dormantCount++;
+        deptObj.enrolledCount += row.studentsEnrolled;
       }
 
-      return { success: true, data: reportData };
+      const faculties = Array.from(facultyMap.values()).map(f => ({
+        ...f,
+        complianceRate: f.totalCourses > 0 ? Number(((f.assignedCount / f.totalCourses) * 100).toFixed(1)) : 0,
+        avgMaterials: f.totalCourses > 0 ? Number((f.materialsCount / f.totalCourses).toFixed(1)) : 0,
+        avgAssessments: f.totalCourses > 0 ? Number((f.assessmentsCount / f.totalCourses).toFixed(1)) : 0,
+      })).sort((a, b) => b.totalCourses - a.totalCourses);
+
+      const departments = Array.from(deptMap.values()).map(d => ({
+        ...d,
+        complianceRate: d.totalCourses > 0 ? Number(((d.assignedCount / d.totalCourses) * 100).toFixed(1)) : 0,
+      })).sort((a, b) => b.totalCourses - a.totalCourses);
+
+      const summary = {
+        totalCourses,
+        assignedCount,
+        unassignedCount: totalCourses - assignedCount,
+        complianceRate: totalCourses > 0 ? Number(((assignedCount / totalCourses) * 100).toFixed(1)) : 0,
+        withMaterialsCount,
+        materialsAdoptionRate: totalCourses > 0 ? Number(((withMaterialsCount / totalCourses) * 100).toFixed(1)) : 0,
+        withAssessmentsCount,
+        assessmentsAdoptionRate: totalCourses > 0 ? Number(((withAssessmentsCount / totalCourses) * 100).toFixed(1)) : 0,
+        dormantCount,
+        dormantRate: totalCourses > 0 ? Number(((dormantCount / totalCourses) * 100).toFixed(1)) : 0,
+        totalEnrolledUsers,
+        maturity
+      };
+
+      const finalSnapshot = {
+        success: true,
+        academicYear: targetYear,
+        semester: targetTerm,
+        generatedAt: new Date().toISOString(),
+        summary,
+        faculties,
+        departments,
+        courses: reportData,
+      };
+
+      // Save to memory cache
+      this.reportSnapshotCache.set(cacheKey, finalSnapshot);
+
+      // Persist to disk
+      try {
+        const filePath = this.getSnapshotFilePath(targetYear, targetTerm);
+        fs.writeFileSync(filePath, JSON.stringify(finalSnapshot), 'utf-8');
+        this.logger.log(`[ReportEngine] Report snapshot written to ${filePath}`);
+      } catch (err: any) {
+        this.logger.error(`[ReportEngine] Failed saving snapshot to disk: ${err.message}`);
+      }
+
+      this.reportProgress.isGenerating = false;
+      this.reportProgress.currentStep = 'Completed';
+      this.reportProgress.updatedAt = new Date().toISOString();
+      this.logger.log(`[ReportEngine] LMS Usage Report generated successfully for ${totalCourses} courses!`);
+
+      return finalSnapshot;
     } catch (err: any) {
+      this.reportProgress.isGenerating = false;
+      this.reportProgress.error = err.message;
+      this.reportProgress.currentStep = 'Failed';
       this.logger.error(`Error generating report: ${err.message}`);
       return { success: false, error: err.message };
     }
+  }
+
+  async getComprehensiveUsageReport(year?: string, term?: string) {
+    const report = await this.getOrGenerateLmsUsageReport(year, term);
+    if (!report.success) return report;
+    return {
+      success: true,
+      data: report.courses || report.data || [],
+      summary: report.summary,
+      faculties: report.faculties,
+      departments: report.departments,
+      generatedAt: report.generatedAt,
+      isGenerating: report.isGenerating || false
+    };
   }
 
   async getUserCourses(userid: string | number) {

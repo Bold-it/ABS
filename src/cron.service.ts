@@ -2,13 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { EmailService } from './email.service';
 import { SoisService } from './sois.service';
+import { MoodleService } from './moodle.service';
+
 @Injectable()
 export class CronService {
   private readonly logger = new Logger(CronService.name);
 
   constructor(
     private emailService: EmailService,
-    private soisService: SoisService
+    private soisService: SoisService,
+    private moodleService: MoodleService
   ) {}
 
   // Run at 08:00 AM on the 1st day of Aug, Sep, Jan, Feb
@@ -58,5 +61,24 @@ export class CronService {
     await this.soisService.syncAdmittedStudents(academicYear, term, 'enrollments');
     
     this.logger.log('Nightly SOIS sync completed!');
+  }
+
+  // Run at 02:00 AM every day - compiles fresh report snapshot right after nightly SOIS sync
+  @Cron('0 2 * * *')
+  async handleNightlyReportSnapshot() {
+    this.logger.log('Triggering automated nightly LMS report snapshot compilation...');
+    const currentYear = new Date().getFullYear();
+    const month = new Date().getMonth();
+    const academicYear = month >= 7
+      ? `${currentYear}/${currentYear + 1}`
+      : `${currentYear - 1}/${currentYear}`;
+    const term = month >= 7 || month < 1 ? '1' : '2';
+
+    try {
+      await this.moodleService.generateAndSaveLmsUsageReport(academicYear, term);
+      this.logger.log(`Automated nightly report snapshot compiled successfully for ${academicYear} Semester ${term}!`);
+    } catch (err: any) {
+      this.logger.error(`Automated nightly report snapshot failed: ${err.message}`);
+    }
   }
 }

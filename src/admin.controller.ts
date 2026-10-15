@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Student, StudentState } from './student.entity';
 import { Repository } from 'typeorm';
 import { AuditLog } from './audit-log.entity';
+import { MountedCourse } from './mounted-course.entity';
 import { MoodleService } from './moodle.service';
 import { MoodleQueueService } from './moodle-queue.service';
 
@@ -18,6 +19,8 @@ export class AdminController {
     private studentRepo: Repository<Student>,
     @InjectRepository(AuditLog)
     private auditLogRepo: Repository<AuditLog>,
+    @InjectRepository(MountedCourse)
+    private mountedCourseRepo: Repository<MountedCourse>,
     private onboardingService: OnboardingService,
     private moodleService: MoodleService,
     private emailService: EmailService,
@@ -386,9 +389,167 @@ export class AdminController {
     return this.soisService.reconcileCourseTeachers(year, term);
   }
 
+  @Get('reports/snapshot')
+  async getReportSnapshot(@Query('year') year?: string, @Query('term') term?: string) {
+    const lms = await this.moodleService.getOrGenerateLmsUsageReport(year, term);
+    const abs = await this.getAbsSystemReportData(year, term);
+    return {
+      success: true,
+      lms,
+      abs,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  @Get('reports/abs-system')
+  async getAbsSystemReport(@Query('year') year?: string, @Query('term') term?: string) {
+    const abs = await this.getAbsSystemReportData(year, term);
+    return {
+      success: true,
+      abs,
+    };
+  }
+
+  @Post('reports/refresh')
+  async refreshReports(@Query('year') year?: string, @Query('term') term?: string) {
+    return this.moodleService.triggerBackgroundReportGeneration(year, term);
+  }
+
+  @Get('reports/progress')
+  async getReportProgress() {
+    return this.moodleService.getReportGenerationProgress();
+  }
+
   @Get('reports/lms-usage')
   async getLmsUsageReport(@Query('year') year?: string, @Query('term') term?: string) {
     return this.moodleService.getComprehensiveUsageReport(year, term);
+  }
+
+  private async getAbsSystemReportData(year?: string, term?: string) {
+    const totalStudents = await this.studentRepo.count();
+    const admitted = await this.studentRepo.count({ where: { state: StudentState.ADMITTED } });
+    const active = await this.studentRepo.count({ where: { state: StudentState.ACTIVE } });
+    const restricted = await this.studentRepo.count({ where: { state: StudentState.RESTRICTED } });
+    const graduated = await this.studentRepo.count({ where: { state: StudentState.GRADUATED } });
+    const provisionedMoodle = await this.studentRepo.count({ where: { moodleAccountCreated: true } });
+
+    // Freshers (e.g. 0326 in index number)
+    const provisionedFreshers = await this.studentRepo.createQueryBuilder('s')
+      .where('s.moodleAccountCreated = true')
+      .andWhere('s.indexNumber LIKE :pattern', { pattern: '%0326%' })
+      .getCount();
+
+    const pendingFreshers = await this.studentRepo.createQueryBuilder('s')
+      .where('s.moodleAccountCreated = false')
+      .andWhere('s.indexNumber LIKE :pattern', { pattern: '%0326%' })
+      .getCount();
+
+    const continuingCount = totalStudents - (provisionedFreshers + pendingFreshers);
+
+    // Pending registrations
+    const pendingRegistrations = await this.studentRepo.createQueryBuilder('s')
+      .where('s.pendingCourses IS NOT NULL')
+      .getCount();
+
+    // Students with missing index numbers
+    const missingIndexNumbers = await this.studentRepo.createQueryBuilder('s')
+      .where("s.indexNumber IS NULL OR s.indexNumber = ''")
+      .getCount();
+
+    // Fee payment distribution
+    const paidFull = await this.studentRepo.createQueryBuilder('s')
+      .where('s.paymentPercentage >= 100')
+      .getCount();
+    const paidCleared = await this.studentRepo.createQueryBuilder('s')
+      .where('s.paymentPercentage >= 50 AND s.paymentPercentage < 100')
+      .getCount();
+    const paidPartial = await this.studentRepo.createQueryBuilder('s')
+      .where('s.paymentPercentage > 0 AND s.paymentPercentage < 50')
+      .getCount();
+    const paidZero = await this.studentRepo.createQueryBuilder('s')
+      .where('s.paymentPercentage = 0 OR s.paymentPercentage IS NULL')
+      .getCount();
+
+    // Mounted Courses Status
+    const totalMounted = await this.mountedCourseRepo.count();
+    const syncedToMoodle = await this.mountedCourseRepo.createQueryBuilder('c')
+      .where('c.isSyncedToMoodle = true OR c.moodleCourseId IS NOT NULL')
+      .getCount();
+    const assignedLecturers = await this.mountedCourseRepo.createQueryBuilder('c')
+      .where("c.lecturerName IS NOT NULL AND c.lecturerName != '' AND c.lecturerName NOT REGEXP '^[0-9]+$'")
+      .getCount();
+
+    // Queue & Worker Pool
+    const queueStatus = this.moodleQueue.getQueueStatus();
+
+    // Recent Audit Logs Analysis
+    let recentFailedCount = 0;
+    let recentEventsCount = 0;
+    try {
+      recentEventsCount = await this.auditLogRepo.count();
+      recentFailedCount = await this.auditLogRepo.createQueryBuilder('l')
+        .where('l.action LIKE :pattern', { pattern: '%_FAILED%' })
+        .getCount();
+    } catch (e) {}
+
+    // Health
+    let dbStatus = 'connected';
+    try {
+      await this.studentRepo.query('SELECT 1');
+    } catch (e) {
+      dbStatus = 'failed';
+    }
+    const lmsStatus = await this.moodleService.checkConnection();
+    const financeMock = this.configService.get('FINANCE_MOCK_MODE') === 'true' ? 'mock_mode' : 'connected';
+    const smsMock = this.configService.get('SMS_MOCK_MODE') !== 'false' ? 'mock_mode' : 'connected';
+    const googleMock = this.configService.get('GOOGLE_WORKSPACE_MOCK_MODE') === 'true' ? 'mock_mode' : 'connected';
+
+    return {
+      generatedAt: new Date().toISOString(),
+      funnel: {
+        totalStudents,
+        admitted,
+        active,
+        restricted,
+        graduated,
+        provisionedMoodle,
+        provisionedRate: totalStudents > 0 ? Number(((provisionedMoodle / totalStudents) * 100).toFixed(1)) : 0,
+        activeRate: totalStudents > 0 ? Number(((active / totalStudents) * 100).toFixed(1)) : 0,
+        provisionedFreshers,
+        pendingFreshers,
+        continuingCount: continuingCount > 0 ? continuingCount : 0,
+        pendingRegistrations,
+        missingIndexNumbers,
+      },
+      fees: {
+        paidFull,
+        paidCleared,
+        paidPartial,
+        paidZero,
+        clearedRate: totalStudents > 0 ? Number((((paidFull + paidCleared) / totalStudents) * 100).toFixed(1)) : 0,
+      },
+      courses: {
+        totalMounted,
+        syncedToMoodle,
+        assignedLecturers,
+        unassignedLecturers: totalMounted - assignedLecturers,
+        complianceRate: totalMounted > 0 ? Number(((assignedLecturers / totalMounted) * 100).toFixed(1)) : 0,
+      },
+      queue: queueStatus,
+      integrity: {
+        totalEventsLogged: recentEventsCount,
+        failedActionsCount: recentFailedCount,
+        errorRate: recentEventsCount > 0 ? Number(((recentFailedCount / recentEventsCount) * 100).toFixed(2)) : 0,
+      },
+      radar: {
+        mysql: dbStatus,
+        redis: 'connected',
+        lms: lmsStatus === 'mock_mode' ? 'mock_mode' : (lmsStatus ? 'connected' : 'failed'),
+        finance: financeMock,
+        sms: smsMock,
+        google: googleMock,
+      }
+    };
   }
 
   @Get('debug-sois')

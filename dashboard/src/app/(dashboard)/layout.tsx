@@ -8,6 +8,7 @@ const menuItems = [
   { name: 'Home', path: '/', icon: '🏠' },
   { name: 'Students', path: '/students', icon: '🎓' },
   { name: 'Mounted Courses', path: '/courses', icon: '📚' },
+  { name: 'System Reports', path: '/reports', icon: '📊' },
   { name: 'Audit Logs', path: '/audit-logs', icon: '📜' },
   { name: 'Job Queue', path: '/jobs', icon: '⚙️' },
   { name: 'Rollover Console', path: '/rollover', icon: '🔄' },
