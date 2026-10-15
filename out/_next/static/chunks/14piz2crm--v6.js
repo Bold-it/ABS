@@ -1,0 +1,101 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,76086,e=>{"use strict";var t=e.i(27493),a=e.i(4),s=e.i(16871);function r(){let e=(0,s.useSearchParams)().get("status")||"",[r,o]=(0,a.useState)([]),[d,n]=(0,a.useState)(!0),[c,p]=(0,a.useState)(!1),[x,m]=(0,a.useState)(""),[h,g]=(0,a.useState)(""),[u,b]=(0,a.useState)(e),[y,f]=(0,a.useState)(null),[w,v]=(0,a.useState)(1),[j,N]=(0,a.useState)(1),[S,k]=(0,a.useState)(0),A=(0,s.useRouter)();(0,a.useEffect)(()=>{let e=setTimeout(()=>{g(x),v(1)},400);return()=>clearTimeout(e)},[x]);let E=async()=>{n(!0);let e=localStorage.getItem("abs_token"),t=new URL("/api/admin/students",window.location.origin);h&&t.searchParams.append("search",h),u&&t.searchParams.append("status",u),t.searchParams.append("page",w.toString()),t.searchParams.append("limit","50");try{let a=await fetch(t.toString(),{headers:{Authorization:`Bearer ${e}`}}),s=await a.json();o(s.items||[]),N(s.totalPages||1),k(s.total||0)}catch(e){console.error(e)}finally{n(!1)}};(0,a.useEffect)(()=>{E()},[h,u,w]);let C=async e=>{let t=localStorage.getItem("abs_token");if(confirm("Are you sure you want to force manifest activation? This bypasses the fee threshold check."))try{let a=await fetch(`/api/admin/activate/${e}`,{method:"POST",headers:{Authorization:`Bearer ${t}`}}),s=await a.json();alert(s.message||"Job queued"),E()}catch(e){alert(e.message||"Error occurred")}},P=async()=>{if(!confirm("Pull and onboard past uncaptured admitted students from SOIS?\n\nABS will automatically:\n1. Provision their @htu.edu.gh Google Workspace emails\n2. Create their Moodle LMS accounts\n3. Restrict their status initially\n4. Send Freshers (0326) a Welcome SMS with credentials!"))return;let e=localStorage.getItem("abs_token");try{let t=await fetch("/api/admin/students/sync-sois-admissions",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${e}`},body:JSON.stringify({year:"2025/2026",term:"1"})}),a=await t.json();alert(`SOIS Admissions Sync Complete!
+Total Fetched: ${a.totalFetched||0}
+New Students Admitted: ${a.newStudentsAdmitted||0}
+Students Onboarded (Email & Moodle): ${a.studentsOnboarded||0}`),E()}catch(e){alert("Sync error: "+e.message)}},T=async()=>{if(!confirm("Import all 1,014 missed admission student records into ABS?\n\nABS will:\n1. Insert all 1,014 records into ABS Registry\n2. Provision Google Workspace Emails (@htu.edu.gh)\n3. Create Moodle LMS Accounts\n4. Send Welcome SMS credentials!"))return;let e=localStorage.getItem("abs_token");try{let t=await fetch("/api/admin/students/import-missed",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${e}`}}),a=await t.json();alert(`Missed Admissions Import Complete!
+
+Total Processed: ${a.totalImported||0}
+New Students Added: ${a.newStudentsAdded||0}
+Already Existed: ${a.alreadyExisted||0}
+Students Onboarded (Google & Moodle): ${a.studentsOnboarded||0}`),E()}catch(e){alert("Import error: "+e.message)}},I=async(e,t)=>{if(!confirm(`Are you sure you want to permanently delete "${t}"?
+
+This will remove the student record from ABS.`))return;let a=localStorage.getItem("abs_token");try{let t=await fetch(`/api/admin/students/${e}`,{method:"DELETE",headers:{Authorization:`Bearer ${a}`}}),s=await t.json();alert(s.message||"Student record deleted"),E()}catch(e){alert(e.message||"Error deleting student")}};return(0,t.jsxs)("div",{className:"relative min-h-full",children:[(0,t.jsxs)("div",{className:"flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4 mb-8",children:[(0,t.jsxs)("div",{className:"flex flex-col md:flex-row gap-4 flex-1",children:[(0,t.jsxs)("div",{className:"relative w-full md:w-96",children:[(0,t.jsx)("input",{type:"text",placeholder:"Search by name or index...",value:x,onChange:e=>m(e.target.value),className:"w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none shadow-sm bg-white"}),(0,t.jsx)("span",{className:"absolute left-3 top-3.5 opacity-40",children:"🔍"})]}),(0,t.jsx)("div",{className:"flex gap-2 overflow-x-auto pb-2 md:pb-0",children:["","PENDING","ADMITTED","ACTIVE","RESTRICTED"].map(e=>(0,t.jsx)("button",{onClick:()=>b(e),className:`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${u===e?"bg-primary text-white shadow-md":"bg-white text-gray-500 border border-gray-100 hover:bg-gray-50"}`,children:e||"ALL"},e))})]}),(0,t.jsxs)("div",{className:"flex flex-wrap gap-2 justify-end",children:[(0,t.jsxs)("button",{onClick:T,className:"px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-xl shadow hover:shadow-lg transition-all uppercase tracking-wider flex items-center gap-2",children:[(0,t.jsx)("span",{children:"📥"})," Import Missed (1,014)"]}),(0,t.jsxs)("button",{onClick:P,className:"px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow hover:shadow-lg transition-all uppercase tracking-wider flex items-center gap-2",children:[(0,t.jsx)("span",{children:"⚡"})," Pull SOIS Admissions"]}),(0,t.jsxs)("button",{onClick:()=>{if(0===r.length)return void alert("No student data available to export.");let e=encodeURI("data:text/csv;charset=utf-8,"+["ID,Full Name,Admission/Index Number,Programme,Level,Fees Paid %,Status,Moodle Provisioned",...r.map(e=>[e.id,e.fullName,e.indexNumber||e.admissionId,e.programme,e.level,`${e.paymentPercentage}%`,e.state,e.moodleAccountCreated?"YES":"NO"]).map(e=>e.map(e=>`"${e}"`).join(","))].join("\n")),t=document.createElement("a");t.setAttribute("href",e),t.setAttribute("download",`HTU_LMS_Student_Report_${u||"ALL"}.csv`),document.body.appendChild(t),t.click(),document.body.removeChild(t)},className:"px-4 py-3 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-black rounded-xl hover:shadow transition-all uppercase tracking-wider flex items-center gap-2",children:[(0,t.jsx)("span",{children:"📊"})," Export CSV"]}),(0,t.jsxs)("button",{onClick:()=>{if(0===r.length)return void alert("No student data available to generate report.");let e=window.open("","_blank");if(!e)return void alert("Please allow popups to view the report.");let t=r.length,a=r.filter(e=>"ACTIVE"===e.state).length,s=r.filter(e=>"RESTRICTED"===e.state).length;r.filter(e=>"PENDING"===e.state).length;let l=Math.round(r.reduce((e,t)=>e+t.paymentPercentage,0)/t),i=r.map((e,t)=>`
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${t+1}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">${e.fullName}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${e.indexNumber||e.admissionId}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${e.programme} (L${e.level})</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">${e.paymentPercentage}%</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">
+          <span style="padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; background: ${"ACTIVE"===e.state?"#D1FAE5; color: #065F46;":"RESTRICTED"===e.state?"#FEE2E2; color: #991B1B;":"#FEF3C7; color: #92400E;"}">${e.state}</span>
+        </td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${e.moodleAccountCreated?"🟢 Provisioned":"🔴 Missing"}</td>
+      </tr>
+    `).join("");e.document.write(`
+      <html>
+        <head>
+          <title>HTU ABS Bridge - Academic & LMS Status Report</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; color: #333; }
+            .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #0D3F7C; padding-bottom: 20px; }
+            .logo { height: 70px; }
+            .title { text-align: right; }
+            .title h1 { margin: 0; color: #0D3F7C; font-size: 24px; text-transform: uppercase; }
+            .title p { margin: 5px 0 0 0; color: #666; font-size: 12px; font-weight: bold; letter-spacing: 2px; }
+            .stats-grid { display: grid; grid-cols: 4; display: flex; justify-content: space-between; margin: 30px 0; gap: 15px; }
+            .stat-card { flex: 1; padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; text-align: center; }
+            .stat-card h3 { margin: 0 0 5px 0; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+            .stat-card p { margin: 0; font-size: 20px; font-weight: bold; color: #0D3F7C; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+            th { background: #0D3F7C; color: white; padding: 12px; text-align: left; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }
+            .print-btn { display: block; width: 150px; padding: 10px; background: #0D3F7C; color: white; border: none; border-radius: 6px; font-weight: bold; text-align: center; cursor: pointer; text-decoration: none; margin-bottom: 20px; }
+            @media print { .print-btn { display: none; } }
+          </style>
+        </head>
+        <body>
+          <button class="print-btn" onclick="window.print()">🖨️ Print Report</button>
+          
+          <div class="header">
+            <img class="logo" src="/logo.png" alt="HTU Logo" />
+            <div class="title">
+              <h1>Ho Technical University</h1>
+              <p>LMS Automated Bridge Integration Report</p>
+            </div>
+          </div>
+          
+          <div style="margin-top: 20px; font-size: 11px; color: #666;">
+            <strong>Generated on:</strong> ${new Date().toLocaleString()} | <strong>Filter Applied:</strong> ${u||"ALL STUDENTS"}
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <h3>Total Students</h3>
+              <p>${t}</p>
+            </div>
+            <div class="stat-card">
+              <h3>Active Enrolled</h3>
+              <p style="color: #10B981;">${a}</p>
+            </div>
+            <div class="stat-card">
+              <h3>Restricted / Blocked</h3>
+              <p style="color: #EF4444;">${s}</p>
+            </div>
+            <div class="stat-card">
+              <h3>Average Fees Paid</h3>
+              <p style="color: #F5A623;">${l}%</p>
+            </div>
+          </div>
+
+          <h2>Student Registry Details</h2>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 5%;">#</th>
+                <th style="width: 25%;">Student Name</th>
+                <th style="width: 15%;">Index Number</th>
+                <th style="width: 25%;">Programme & Level</th>
+                <th style="width: 10%;">Fees Paid</th>
+                <th style="width: 10%;">Status</th>
+                <th style="width: 10%;">Moodle Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${i}
+            </tbody>
+          </table>
+          
+          <div style="margin-top: 50px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+            Ho Technical University Auto Bridge Service \xa9 2026. This report was dynamically generated.
+          </div>
+        </body>
+      </html>
+    `),e.document.close()},className:"px-4 py-3 bg-primary text-white hover:opacity-90 text-xs font-black rounded-xl hover:shadow transition-all uppercase tracking-wider flex items-center gap-2",children:[(0,t.jsx)("span",{children:"✨"})," Smart Report"]})]})]}),(0,t.jsxs)("div",{className:"bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden",children:[(0,t.jsx)("div",{className:"overflow-x-auto",children:(0,t.jsxs)("table",{className:"w-full text-left",children:[(0,t.jsx)("thead",{children:(0,t.jsxs)("tr",{className:"bg-gray-50 border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest",children:[(0,t.jsx)("th",{className:"px-6 py-4",children:"Student"}),(0,t.jsx)("th",{className:"px-6 py-4",children:"Programme / Level"}),(0,t.jsx)("th",{className:"px-6 py-4",children:"Fees Paid"}),(0,t.jsx)("th",{className:"px-6 py-4",children:"Status"}),(0,t.jsx)("th",{className:"px-6 py-4",children:"Moodle"}),(0,t.jsx)("th",{className:"px-6 py-4",children:"Actions"})]})}),(0,t.jsx)("tbody",{className:"divide-y divide-gray-50",children:r.map(e=>(0,t.jsxs)("tr",{className:"hover:bg-primary-light/30 transition-colors cursor-pointer group",onClick:()=>A.push(`/students/profile?id=${e.id}`),children:[(0,t.jsxs)("td",{className:"px-6 py-4",children:[(0,t.jsx)("p",{className:"font-bold text-gray-800 group-hover:text-primary",children:e.fullName}),(0,t.jsx)("p",{className:"text-xs text-gray-400 font-medium font-mono",children:e.indexNumber||e.admissionId})]}),(0,t.jsxs)("td",{className:"px-6 py-4",children:[(0,t.jsx)("p",{className:"text-sm font-bold text-gray-600",children:e.programme}),(0,t.jsxs)("p",{className:"text-xs text-gray-400 font-medium",children:["Level ",e.level]})]}),(0,t.jsx)("td",{className:"px-6 py-4 w-48",children:(0,t.jsxs)("div",{className:"flex items-center gap-2",children:[(0,t.jsx)("div",{className:"flex-1 h-2 bg-gray-100 rounded-full overflow-hidden",children:(0,t.jsx)("div",{className:`h-full transition-all duration-500 ${e.paymentPercentage>=60?"bg-green-500":"bg-primary"}`,style:{width:`${e.paymentPercentage}%`}})}),(0,t.jsxs)("span",{className:"text-xs font-black text-gray-700",children:[e.paymentPercentage,"%"]})]})}),(0,t.jsx)("td",{className:"px-6 py-4",children:(0,t.jsx)(l,{state:e.state})}),(0,t.jsx)("td",{className:"px-6 py-4",children:e.moodleAccountCreated?(0,t.jsxs)("div",{className:"flex items-center gap-1.5 text-xs font-bold text-green-500",children:[(0,t.jsx)("span",{className:"w-2 h-2 bg-green-500 rounded-full"})," Provisioned"]}):(0,t.jsxs)("div",{className:"flex items-center gap-1.5 text-xs font-bold text-gray-300",children:[(0,t.jsx)("span",{className:"w-2 h-2 bg-gray-300 rounded-full"})," Missing"]})}),(0,t.jsxs)("td",{className:"px-6 py-4 flex gap-2",onClick:e=>e.stopPropagation(),children:[(0,t.jsx)("button",{onClick:()=>A.push(`/students/profile?id=${e.id}`),className:"px-4 py-2 bg-gray-50 border border-gray-200 text-gray-500 text-[10px] font-black rounded-lg hover:bg-gray-100 transition-all uppercase tracking-widest",children:"VIEW PROFILE"}),(0,t.jsx)("button",{disabled:e.moodleAccountCreated,onClick:()=>C(e.id),className:"px-4 py-2 bg-white border border-gray-200 text-primary text-[10px] font-black rounded-lg hover:bg-primary hover:text-white transition-all disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-primary uppercase tracking-widest",children:"FORCE SYNC"}),(0,t.jsx)("button",{onClick:()=>I(e.id,e.fullName),title:"Delete Student Record",className:"px-3 py-2 bg-red-50 border border-red-200 text-red-600 text-[10px] font-black rounded-lg hover:bg-red-600 hover:text-white transition-all uppercase tracking-widest",children:"🗑️"})]})]},e.id))})]})}),(0,t.jsxs)("div",{className:"p-4 border-t border-gray-100 flex items-center justify-between bg-gray-50",children:[(0,t.jsxs)("div",{className:"text-xs font-bold text-gray-500",children:["Showing ",r.length," of ",S," students"]}),(0,t.jsxs)("div",{className:"flex gap-2",children:[(0,t.jsx)("button",{disabled:w<=1,onClick:()=>v(e=>e-1),className:"px-4 py-2 bg-white border border-gray-200 text-gray-500 text-[10px] font-black rounded-lg hover:bg-gray-50 transition-all uppercase disabled:opacity-30 disabled:cursor-not-allowed",children:"Prev"}),(0,t.jsxs)("div",{className:"px-4 py-2 text-[10px] font-black text-gray-400 uppercase flex items-center",children:["Page ",w," of ",j]}),(0,t.jsx)("button",{disabled:w>=j,onClick:()=>v(e=>e+1),className:"px-4 py-2 bg-white border border-gray-200 text-gray-500 text-[10px] font-black rounded-lg hover:bg-gray-50 transition-all uppercase disabled:opacity-30 disabled:cursor-not-allowed",children:"Next"})]})]})]}),c&&y&&(0,t.jsxs)(t.Fragment,{children:[(0,t.jsx)("div",{className:"fixed inset-0 bg-black/20 z-40 backdrop-blur-sm",onClick:()=>p(!1)}),(0,t.jsxs)("div",{className:"fixed right-0 top-0 h-screen w-full max-w-xl bg-white z-50 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300",children:[(0,t.jsxs)("div",{className:"p-8 border-b border-gray-100 flex justify-between items-center bg-primary text-white",children:[(0,t.jsxs)("div",{children:[(0,t.jsx)("h2",{className:"text-2xl font-black",children:y.student.fullName}),(0,t.jsx)("p",{className:"opacity-70 font-mono text-sm",children:y.student.indexNumber||y.student.admissionId})]}),(0,t.jsx)("button",{onClick:()=>p(!1),className:"w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xl",children:"✕"})]}),(0,t.jsxs)("div",{className:"p-8 space-y-10",children:[(0,t.jsxs)("section",{children:[(0,t.jsx)("h4",{className:"text-xs font-black text-gray-400 uppercase tracking-widest mb-4",children:"Account Information"}),(0,t.jsxs)("div",{className:"grid grid-cols-2 gap-4",children:[(0,t.jsx)(i,{label:"School Email",value:y.student.schoolEmail||"Not provisioned"}),(0,t.jsx)(i,{label:"Personal Email",value:y.student.email}),(0,t.jsx)(i,{label:"Phone Number",value:y.student.phone}),(0,t.jsx)(i,{label:"Moodle ID",value:y.student.moodleUserId||"None"})]})]}),(0,t.jsxs)("section",{children:[(0,t.jsx)("h4",{className:"text-xs font-black text-gray-400 uppercase tracking-widest mb-4",children:"ABS Automation History"}),(0,t.jsx)("div",{className:"space-y-4",children:y.logs.length>0?y.logs.map(e=>(0,t.jsxs)("div",{className:"flex gap-4 items-start",children:[(0,t.jsx)("div",{className:"w-2 h-2 mt-1.5 rounded-full bg-primary shrink-0"}),(0,t.jsxs)("div",{children:[(0,t.jsx)("p",{className:"text-sm font-bold text-gray-800",children:e.action}),(0,t.jsx)("p",{className:"text-xs text-gray-400",children:e.details}),(0,t.jsx)("p",{className:"text-[10px] font-medium text-gray-300 mt-1 uppercase",children:new Date(e.timestamp).toLocaleString()})]})]},e.id)):(0,t.jsx)("p",{className:"text-sm text-gray-400 italic",children:"No automation logs recorded for this student yet."})})]}),(0,t.jsxs)("section",{children:[(0,t.jsx)("h4",{className:"text-xs font-black text-gray-400 uppercase tracking-widest mb-4",children:"Payment Timeline"}),(0,t.jsx)("div",{className:"space-y-3",children:y.payments.map(e=>(0,t.jsxs)("div",{className:"p-4 rounded-xl bg-gray-50 border border-gray-100 flex justify-between items-center",children:[(0,t.jsxs)("div",{children:[(0,t.jsxs)("p",{className:"text-xs font-black text-gray-400 uppercase tracking-tighter",children:["REF: ",e.reference]}),(0,t.jsxs)("p",{className:"text-sm font-bold text-primary mt-0.5",children:["+",(e.amount/100).toLocaleString()," GHS"]})]}),(0,t.jsxs)("div",{className:"text-right",children:[(0,t.jsxs)("p",{className:"text-xs font-bold text-gray-500",children:[e.percentage,"% Total"]}),(0,t.jsx)("p",{className:"text-[10px] font-medium text-gray-300 uppercase",children:new Date(e.paidAt).toLocaleDateString()})]})]},e.id))})]})]})]})]})]})}function l({state:e}){return(0,t.jsx)("span",{className:`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${{PENDING:"bg-gray-100 text-gray-500",ADMITTED:"bg-blue-100 text-blue-500",ACTIVE:"bg-green-100 text-green-500",RESTRICTED:"bg-red-100 text-red-500"}[e]||"bg-gray-100 text-gray-500"}`,children:e})}function i({label:e,value:a}){return(0,t.jsxs)("div",{className:"p-4 rounded-xl border border-gray-100 bg-gray-50/50",children:[(0,t.jsx)("p",{className:"text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1",children:e}),(0,t.jsx)("p",{className:"text-sm font-bold text-gray-700 truncate",children:a})]})}e.s(["default",0,function(){return(0,t.jsx)(a.Suspense,{fallback:(0,t.jsx)("div",{className:"p-8 text-primary font-black uppercase tracking-widest animate-pulse",children:"Scanning Registry..."}),children:(0,t.jsx)(r,{})})}])}]);

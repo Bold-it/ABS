@@ -33,13 +33,15 @@ export class AdminController {
     const active = await this.studentRepo.count({ where: { state: StudentState.ACTIVE } });
     const restricted = await this.studentRepo.count({ where: { state: StudentState.RESTRICTED } });
     const provisioned = await this.studentRepo.count({ where: { moodleAccountCreated: true } });
-    const { Like } = require('typeorm');
-    const provisionedFreshers = await this.studentRepo.count({ 
-        where: { 
-            moodleAccountCreated: true, 
-            indexNumber: Like('%0326%') 
-        } 
-    });
+    const provisionedFreshers = await this.studentRepo.createQueryBuilder('s')
+      .where('s.moodleAccountCreated = true')
+      .andWhere('s.indexNumber LIKE :pattern', { pattern: '%0326%' })
+      .getCount();
+    
+    const queueStatus = this.moodleQueue.getQueueStatus();
+    const pendingRegistrations = await this.studentRepo.createQueryBuilder('s')
+      .where('s.pendingCourses IS NOT NULL')
+      .getCount();
     
     return {
       total,
@@ -47,7 +49,9 @@ export class AdminController {
       active,
       restricted,
       provisioned,
-      provisionedFreshers
+      provisionedFreshers,
+      pendingRegistrations,
+      queue: queueStatus,
     };
   }
 
@@ -158,8 +162,18 @@ export class AdminController {
         .andWhere('student.state IN (:...states)', { states: [StudentState.ADMITTED, StudentState.ACTIVE] })
         .getMany();
 
+      // Find students whose course registration is pending
+      const pendingEnrollments = await this.studentRepo.createQueryBuilder('s')
+        .where('s.pendingCourses IS NOT NULL')
+        .take(50)
+        .getMany();
+
       const studentMap = new Map<string, any>();
-      const allStudentIds = [...logs.map(l => l.studentId).filter(id => id), ...pendingStudents.map(s => s.id)];
+      const allStudentIds = [
+        ...logs.map(l => l.studentId).filter(id => id), 
+        ...pendingStudents.map(s => s.id),
+        ...pendingEnrollments.map(s => s.id)
+      ];
       
       if (allStudentIds.length > 0) {
         const students = await this.studentRepo.createQueryBuilder('s')
@@ -187,7 +201,18 @@ export class AdminController {
         student: studentMap.get(student.id) || student,
       }));
 
-      return [...formattedLogs, ...formattedPending].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      const formattedPendingEnrollments = pendingEnrollments.map(student => ({
+        id: `reg-${student.id}`,
+        type: 'PENDING_REGISTRATION',
+        action: 'COURSE_REGISTRATION_QUEUED',
+        details: `Course registration pending enrollment in Moodle.`,
+        timestamp: student.updatedAt || student.createdAt,
+        student: studentMap.get(student.id) || student,
+      }));
+
+      return [...formattedLogs, ...formattedPending, ...formattedPendingEnrollments].sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
     } catch (err) {
       console.error('Error fetching failed jobs:', err);
       return [];
@@ -196,6 +221,23 @@ export class AdminController {
 
   @Post('jobs/:id/retry')
   async retryJob(@Param('id') id: string) {
+    if (id.startsWith('reg-')) {
+      const studentId = id.replace('reg-', '');
+      const student = await this.studentRepo.findOne({ where: { id: studentId } as any });
+      if (!student) throw new Error('Student not found');
+      if (student.pendingCourses) {
+        const courses = JSON.parse(student.pendingCourses || '[]');
+        await this.moodleQueue.addJob('BULK_ENROLL', {
+          studentId: student.id,
+          courses,
+          semester: student.pendingSemester || '1',
+          academicYear: student.pendingAcademicYear || '2026/2027',
+        });
+        return { success: true, message: 'Course registration re-queued successfully' };
+      }
+      return { success: true, message: 'No pending courses found for student' };
+    }
+
     let studentId = '';
     
     if (id.startsWith('pending-')) {
@@ -219,6 +261,12 @@ export class AdminController {
     await this.auditLogRepo.save(newLog);
 
     return { success: true, message: 'Retry triggered successfully' };
+  }
+
+  @Post('jobs/sweep')
+  async triggerSweep() {
+    await this.moodleQueue.runAutoSweep();
+    return { success: true, message: 'Auto-recovery sweep triggered successfully' };
   }
 
   @Get('students')
@@ -258,10 +306,17 @@ export class AdminController {
     const student = await this.studentRepo.findOne({ where: { id } as any });
     if (!student) throw new Error('Student not found');
     const logs = await this.auditLogRepo.find({ where: { studentId: id } as any, order: { timestamp: 'DESC' } });
+    
+    let enrolledCourses: any[] = [];
+    if (student.moodleUserId) {
+      enrolledCourses = await this.moodleService.getUserCourses(student.moodleUserId);
+    }
+
     return {
       ...student,
       auditLogs: logs,
-      payments: []
+      payments: [],
+      enrolledCourses,
     };
   }
 
@@ -323,6 +378,12 @@ export class AdminController {
   @Post('moodle/purge-lms')
   async purgeMoodleLms() {
     return this.moodleService.purgeMoodleLmsCoursesAndCategories();
+  }
+
+  @Post('moodle/reconcile-teachers')
+  @Post('courses/reconcile-teachers')
+  async reconcileCourseTeachers(@Query('year') year?: string, @Query('term') term?: string) {
+    return this.soisService.reconcileCourseTeachers(year, term);
   }
 
   @Get('reports/lms-usage')

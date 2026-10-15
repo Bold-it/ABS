@@ -51,23 +51,114 @@ export default function JobsPage() {
     }
   };
 
+  const [sweeping, setSweeping] = useState(false);
+
+  const handleSweep = async () => {
+    const token = localStorage.getItem('abs_token');
+    setSweeping(true);
+    try {
+      const res = await fetch('/api/admin/jobs/sweep', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        alert('Queue auto-recovery sweep triggered successfully!');
+        fetchData();
+      } else {
+        alert('Failed to trigger sweep.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error triggering sweep.');
+    } finally {
+      setSweeping(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Live Monitor Section */}
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-        <div className="flex justify-between items-center mb-8">
-            <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Automation Engine Status</h2>
-            <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                <span className="text-xs font-black text-primary uppercase tracking-widest">BullMQ Live</span>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div>
+              <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Automation Engine Status</h2>
+              <p className="text-xs text-gray-500 font-medium">Real-time parallel queue processor (6 worker threads) & crash-resilient auto-sweep</p>
+            </div>
+            <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSweep}
+                  disabled={sweeping}
+                  className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition border border-indigo-200 flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <span>⚡</span>
+                  {sweeping ? 'Sweeping...' : 'Trigger Queue Sweep'}
+                </button>
+                <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
+                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" />
+                    <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">Moodle Queue Active</span>
+                </div>
             </div>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            <QueueBox label="Waiting" value="0" color="bg-gray-50 text-gray-400" />
-            <QueueBox label="Active" value="0" color="bg-primary-light text-primary" />
-            <QueueBox label="Completed" value={stats?.active || 0} color="bg-green-50 text-green-600" />
-            <QueueBox label="Failed" value={failedJobs.length} color="bg-red-50 text-red-600" />
+            <QueueBox 
+              label="Waiting" 
+              value={(stats?.queue?.pendingJobs ?? 0) + (stats?.pendingRegistrations ?? 0)} 
+              color="bg-amber-50 text-amber-600" 
+            />
+            <QueueBox 
+              label="Active Workers" 
+              value={`${stats?.queue?.activeWorkers ?? 0} / ${stats?.queue?.concurrency ?? 6}`} 
+              color="bg-indigo-50 text-indigo-600" 
+            />
+            <QueueBox 
+              label="Completed" 
+              value={stats?.provisioned ?? stats?.active ?? 0} 
+              color="bg-green-50 text-green-600" 
+            />
+            <QueueBox 
+              label="Attention Needed" 
+              value={failedJobs.length} 
+              color="bg-red-50 text-red-600" 
+            />
+        </div>
+
+        {/* Active Animated Sweeping Bar */}
+        {sweeping && (
+          <div className="mt-6 space-y-2 bg-indigo-50/80 p-4 rounded-2xl border border-indigo-200">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-indigo-800 font-bold flex items-center gap-2">
+                <span className="animate-spin">⚙️</span>
+                Auto-Recovery Sweep Running: Inspecting database for pending registrations & stuck accounts...
+              </span>
+              <span className="text-indigo-600 font-mono text-[11px] font-bold">Active</span>
+            </div>
+            <div className="w-full h-2.5 bg-indigo-200 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-indigo-500 via-amber-400 to-indigo-600 w-full animate-pulse" />
+            </div>
+          </div>
+        )}
+
+        {/* Operational Notice */}
+        <div className="mt-8 bg-slate-900 text-white p-6 rounded-2xl border border-slate-800 space-y-3 text-xs">
+          <div className="flex items-center gap-2 text-amber-300 font-bold uppercase tracking-wider text-xs">
+            <span>⚡</span>
+            <span>Automation Directive: 6-Worker Parallel Queue & Self-Healing Crash Recovery</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-300 text-[11px] leading-relaxed">
+            <div>
+              <p className="font-semibold text-slate-100 mb-1">• Continuous Auto-Sweep (Every 3 Mins):</p>
+              <p className="text-slate-400">
+                The engine runs automatically in the background. If Passenger restarts or memory limits recycle Node.js, the auto-sweep scans MySQL for students with <code className="text-indigo-300">pendingCourses</code> and immediately re-queues them. Zero course registrations will be dropped.
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-slate-100 mb-1">• Manual Trigger Queue Sweep:</p>
+              <p className="text-slate-400">
+                Use the <span className="text-indigo-300 font-semibold">Trigger Queue Sweep</span> button to force an immediate recovery cycle without waiting for the 3-minute cron. All worker threads will immediately spawn to process queued admissions and enrollments in parallel.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

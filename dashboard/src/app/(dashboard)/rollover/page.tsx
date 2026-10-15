@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 
 export default function RolloverPage() {
-  const [stats, setStats] = useState({ total: 0, active: 0, restricted: 0 });
+  const [stats, setStats] = useState({ total: 0, active: 0, restricted: 0, provisionedFreshers: 0 });
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
 
@@ -17,11 +17,7 @@ export default function RolloverPage() {
     try {
       const res = await fetch("/api/admin/stats");
       const data = await res.json();
-      setStats({
-        total: data.total,
-        active: data.active,
-        restricted: data.restricted,
-      });
+      setStats(data);
     } catch (err) {
       console.error("Failed to load stats", err);
     } finally {

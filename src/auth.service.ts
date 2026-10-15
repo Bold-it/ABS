@@ -41,15 +41,6 @@ export class AuthService {
       const email = payload?.email;
       const name = payload?.name;
 
-      // Define authorized personnel
-      const SUPER_ADMIN = 'moses.nyarko@htu.edu.gh';
-      const AUTHORIZED_ADMINS = [
-        's.agana@htu.edu.gh',
-        'sagana@htu.edu.gh',   // Alias — Google sometimes returns capital-S variant
-        'gkumador@htu.edu.gh',
-        // Add more admins here later
-      ];
-
       // Normalize email to lowercase to avoid casing mismatches from Google
       const normalizedEmail = (email || '').toLowerCase().trim();
 
@@ -57,10 +48,33 @@ export class AuthService {
         throw new UnauthorizedException('You must use an @htu.edu.gh email address.');
       }
 
+      // Read configured super admins from environment
+      const envSuperAdmins = (process.env.SUPER_ADMIN_EMAILS || '')
+        .split(',')
+        .map(e => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      const envAdmins = (process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map(e => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      // Default baseline authorized personnel
+      const defaultSuperAdmins = [
+        'moses.nyarko@htu.edu.gh',
+        'eamevor@htu.edu.gh',
+        'gkumador@htu.edu.gh',
+        's.agana@htu.edu.gh',
+        'sagana@htu.edu.gh',
+      ];
+
+      const allSuperAdmins = Array.from(new Set([...defaultSuperAdmins, ...envSuperAdmins]));
+      const allAdmins = Array.from(new Set([...envAdmins]));
+
       let role: string | null = null;
-      if (normalizedEmail === SUPER_ADMIN) {
+      if (allSuperAdmins.includes(normalizedEmail)) {
         role = 'super_admin';
-      } else if (AUTHORIZED_ADMINS.map(e => e.toLowerCase()).includes(normalizedEmail)) {
+      } else if (allAdmins.includes(normalizedEmail)) {
         role = 'admin';
       }
 

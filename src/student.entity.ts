@@ -52,6 +52,15 @@ export class Student {
   })
   state: StudentState;
 
+  @Column({ type: 'text', nullable: true })
+  pendingCourses: string | null;
+
+  @Column({ nullable: true, length: 50 })
+  pendingSemester: string | null;
+
+  @Column({ nullable: true, length: 50 })
+  pendingAcademicYear: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

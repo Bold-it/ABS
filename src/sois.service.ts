@@ -10,6 +10,7 @@ import { Student, StudentState } from './student.entity';
 import { OnboardingService } from './onboarding.service';
 import { MountedCourse } from './mounted-course.entity';
 import { MISSED_STUDENTS } from './missed-admissions.data';
+import { MoodleQueueService } from './moodle-queue.service';
 
 @Injectable()
 export class SoisService {
@@ -21,13 +22,24 @@ export class SoisService {
     private configService: ConfigService,
     private moodleService: MoodleService,
     private onboardingService: OnboardingService,
-    private moodleQueueService: import('./moodle-queue.service').MoodleQueueService,
+    private moodleQueueService: MoodleQueueService,
     @InjectRepository(Student)
     private studentRepo: Repository<Student>,
     @InjectRepository(MountedCourse)
     private mountedCourseRepo: Repository<MountedCourse>,
   ) {
-    this.token = this.configService.get<string>('SOIS_API_KEY') || 'Ahfq749djs97ww8hS72ks7w393y8s7Ysvjka';
+    const configuredToken = this.configService.get<string>('SOIS_OUTBOUND_TOKEN') || 
+                            this.configService.get<string>('SOIS_TOKEN');
+    const legacyApiKey = this.configService.get<string>('SOIS_API_KEY');
+    
+    // '32b211c8bac34b69a303996dc2eb7640' is ABS's inbound webhook key, NOT SOIS's outbound token!
+    if (configuredToken) {
+      this.token = configuredToken;
+    } else if (legacyApiKey && !legacyApiKey.startsWith('32b211c8')) {
+      this.token = legacyApiKey;
+    } else {
+      this.token = 'Ahfq749djs97ww8hS72ks7w393y8s7Ysvjka';
+    }
   }
 
   async syncMountedCourses(year?: string, term?: string) {
@@ -102,8 +114,11 @@ export class SoisService {
       if (lecturerName && /^\d+$/.test(lecturerName)) {
         const staff = staffDirectory[lecturerName];
         if (staff) {
-          lecturerName = staff.name || lecturerName;
+          lecturerName = staff.name || null;
           lecturerEmail = staff.email || lecturerEmail;
+        } else {
+          // Do not store or display raw numeric strings as teacher names
+          lecturerName = null;
         }
       }
       const level = String(item.level || item.year_group || '100');
@@ -145,20 +160,17 @@ export class SoisService {
           }
         }
 
-        // Enroll Lecturer in Moodle
-        if (moodleCourseId && lecturerName && originalLecturerRaw) {
+        // Sync verified teacher or clean dummy teachers if unassigned
+        if (moodleCourseId) {
           try {
-            const moodleTeacherId = await this.moodleService.createUser({
-              indexNumber: originalLecturerRaw, // Automatically sanitized to a username inside createUser
-              schoolEmail: lecturerEmail || `${originalLecturerRaw.replace(/\s+/g, '').toLowerCase()}@htu.edu.gh`,
-              fullName: lecturerName
+            await this.moodleService.syncCourseTeacher(moodleCourseId, {
+              name: lecturerName,
+              email: lecturerEmail || undefined,
+              originalId: originalLecturerRaw || undefined
             });
-            if (moodleTeacherId && moodleTeacherId !== 99999) {
-              await this.moodleService.enrollTeacher(String(moodleTeacherId), moodleCourseId);
-              this.logger.log(`Enrolled lecturer ${lecturerName} in Moodle course ${courseCode}`);
-            }
+            this.logger.log(`Synced/cleaned teacher state in Moodle course ${courseCode}`);
           } catch (e: any) {
-            this.logger.warn(`Failed to enroll lecturer ${lecturerName} in Moodle course ${courseCode}: ${e.message}`);
+            this.logger.warn(`Failed to sync/clean teacher in Moodle course ${courseCode}: ${e.message}`);
           }
         }
 
@@ -724,6 +736,89 @@ export class SoisService {
       endpointUrl: this.soisUrl,
       currentToken: this.token,
       results: summary,
+    };
+  }
+
+  async reconcileCourseTeachers(year?: string, term?: string) {
+    const targetYear = year || '2026/2027';
+    const targetTerm = term || '1';
+
+    let staffDirectory: Record<string, { name: string; email: string }> = {};
+    try {
+      staffDirectory = require('./staff-directory.json');
+    } catch (e) {}
+
+    const courses = await this.mountedCourseRepo.find({
+      where: {
+        academicYear: targetYear,
+        semester: targetTerm,
+      } as any
+    });
+
+    let updated = 0;
+    let failed = 0;
+    let skipped = 0;
+
+    for (const c of courses) {
+      if (!c.moodleCourseId) {
+        skipped++;
+        continue;
+      }
+
+      let lecturerName = c.lecturerName;
+      let lecturerEmail = c.lecturerEmail;
+
+      // If lecturer name is numeric, try to resolve from staffDirectory
+      if (lecturerName && /^\d+$/.test(lecturerName.trim())) {
+        const staff = staffDirectory[lecturerName.trim()];
+        if (staff) {
+          lecturerName = staff.name || null;
+          lecturerEmail = staff.email || lecturerEmail;
+          c.lecturerName = lecturerName;
+          c.lecturerEmail = lecturerEmail;
+          await this.mountedCourseRepo.save(c);
+        } else {
+          lecturerName = null;
+          c.lecturerName = null;
+          await this.mountedCourseRepo.save(c);
+        }
+      }
+
+      if (!lecturerName || /^\d+$/.test(lecturerName.trim())) {
+        // Course has NO verified lecturer -> ensure Moodle course is 100% free of dummy teachers
+        try {
+          const removed = await this.moodleService.removeDummyTeachersFromCourse(c.moodleCourseId);
+          if (removed > 0) {
+            this.logger.log(`Cleaned ${removed} dummy teacher(s) from unassigned course ${c.courseCode}`);
+            updated++;
+          } else {
+            skipped++;
+          }
+        } catch (e: any) {
+          failed++;
+        }
+        continue;
+      }
+
+      try {
+        const teacherId = await this.moodleService.syncCourseTeacher(c.moodleCourseId, {
+          name: lecturerName,
+          email: lecturerEmail || undefined,
+        });
+        if (teacherId) updated++;
+        else failed++;
+      } catch (err: any) {
+        this.logger.error(`Failed to reconcile teacher for ${c.courseCode}: ${err.message}`);
+        failed++;
+      }
+    }
+
+    return {
+      success: true,
+      total: courses.length,
+      updated,
+      skipped,
+      failed
     };
   }
 }

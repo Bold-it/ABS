@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Student, StudentState } from './student.entity';
 import { AuditLog } from './audit-log.entity';
+import { MountedCourse } from './mounted-course.entity';
 import { MoodleService } from './moodle.service';
 import { GoogleWorkspaceService } from './google-workspace.service';
 import { SmsService } from './sms.service';
@@ -16,6 +17,8 @@ export class OnboardingService {
     private studentRepo: Repository<Student>,
     @InjectRepository(AuditLog)
     private auditLogRepo: Repository<AuditLog>,
+    @InjectRepository(MountedCourse)
+    private mountedCourseRepo: Repository<MountedCourse>,
     private moodleService: MoodleService,
     private googleWorkspaceService: GoogleWorkspaceService,
     private smsService: SmsService,
@@ -33,12 +36,19 @@ export class OnboardingService {
       }
 
       // 2. Create Moodle Account
-      if (!student.moodleUserId) {
+      if (!student.moodleUserId || student.moodleUserId === 'null' || student.moodleUserId === 'undefined') {
         const moodleId = await this.moodleService.createUser(student);
-        student.moodleUserId = String(moodleId);
-        student.moodleAccountCreated = true;
-        await this.studentRepo.save(student);
-        await this.logAction(student.id, 'MOODLE_ACCOUNT_CREATED', `Moodle ID: ${moodleId}`);
+        if (moodleId) {
+          student.moodleUserId = String(moodleId);
+          student.moodleAccountCreated = true;
+          await this.studentRepo.save(student);
+          await this.logAction(student.id, 'MOODLE_ACCOUNT_CREATED', `Moodle ID: ${moodleId}`);
+        } else {
+          student.moodleUserId = null as any;
+          student.moodleAccountCreated = false;
+          await this.studentRepo.save(student);
+          this.logger.error(`Could not resolve or create Moodle user for ${student.indexNumber}`);
+        }
       }
 
       // 3. Default to RESTRICTED so they are forced to register courses before LMS access
@@ -66,47 +76,93 @@ export class OnboardingService {
   }
 
   async handleBulkCourseEnrollment(student: Student, courses: { courseCode: string }[], semester?: string) {
-    if (!student.moodleUserId) {
+    // 1. Auto-resolve Moodle User ID if missing or corrupted
+    if (!student.moodleUserId || student.moodleUserId === 'null' || student.moodleUserId === 'undefined') {
+      let existingMoodleId = await this.moodleService.getUserIdByUsername(student.indexNumber);
+      if (!existingMoodleId && student.schoolEmail) {
+        existingMoodleId = await this.moodleService.getUserIdByEmail(student.schoolEmail);
+      }
+
+      if (existingMoodleId) {
+        student.moodleUserId = String(existingMoodleId);
+        student.moodleAccountCreated = true;
+        await this.studentRepo.save(student);
+        await this.logAction(student.id, 'MOODLE_ACCOUNT_LINKED', `Linked existing Moodle user ID: ${existingMoodleId}`);
+      } else {
         await this.onboardStudent(student);
+      }
     }
     
-    if (!student.moodleUserId) {
-      this.logger.error(`Cannot enroll student ${student.indexNumber} - Moodle account creation failed.`);
+    if (!student.moodleUserId || student.moodleUserId === 'null' || student.moodleUserId === 'undefined') {
+      this.logger.error(`Cannot enroll student ${student.indexNumber} - Moodle account not found or creation failed.`);
       await this.logAction(student.id, 'COURSE_ENROLLMENT_FAILED', 'Skipped course enrollment: Moodle account does not exist.');
       return;
     }
 
-    // Ensure the student is completely unsuspended since they are cleared to register courses
-    if (student.state !== StudentState.ACTIVE) {
-        this.logger.log(`Student ${student.indexNumber} is not active. Unsuspending prior to enrollment...`);
-        await this.handleUnsuspension(student);
+    // 2. Unconditionally unsuspend user in Moodle so LMS access is unlocked immediately upon course registration
+    try {
+      await this.moodleService.unsuspendUser(student.moodleUserId);
+      if (student.state !== StudentState.ACTIVE) {
+        student.state = StudentState.ACTIVE;
+        await this.studentRepo.save(student);
+        await this.logAction(student.id, 'ACCOUNT_UNSUSPENDED', 'LMS access restored upon course registration');
+      }
+    } catch (unErr: any) {
+      this.logger.warn(`Could not unsuspend user ${student.indexNumber} in Moodle: ${unErr.message}`);
     }
 
     const resolvedCourseIds: number[] = [];
     const missingCourses: string[] = [];
 
     for (const c of courses) {
-      let moodleCourseId = await this.moodleService.getCourseIdByShortname(c.courseCode);
+      const code = (c.courseCode || '').trim();
+      if (!code) continue;
+
+      let moodleCourseId: number | null = null;
+
+      // 1. Resolve immediately from local mounted_courses table (sub-millisecond speed)
+      try {
+        const mounted = await this.mountedCourseRepo.findOne({
+          where: [
+            { courseCode: code },
+            { courseCode: `${code}_26/27` },
+            { courseCode: `${code}_25/26` }
+          ] as any
+        });
+        if (mounted && mounted.moodleCourseId) {
+          moodleCourseId = mounted.moodleCourseId;
+        }
+      } catch (dbErr: any) {
+        this.logger.warn(`Could not lookup course ${code} locally: ${dbErr.message}`);
+      }
+
+      // 2. Fallback to Moodle REST API lookup only if not found locally
+      if (!moodleCourseId) {
+        moodleCourseId = await this.moodleService.getCourseIdByShortname(`${code}_26/27`);
+      }
+      if (!moodleCourseId) {
+        moodleCourseId = await this.moodleService.getCourseIdByShortname(code);
+      }
       
       // AUTO COURSE CREATION: If course does not exist, create it on-the-fly!
       if (!moodleCourseId) {
-        this.logger.log(`Course ${c.courseCode} not found on Moodle. Attempting dynamic creation...`);
-        const courseName = (c as any).courseName || c.courseCode;
+        this.logger.log(`Course ${code} not found on Moodle. Attempting dynamic creation...`);
+        const courseName = (c as any).courseName || code;
         try {
-          moodleCourseId = await this.moodleService.createCourse(c.courseCode, courseName, semester, (c as any).academicYear || '2026/2027');
+          moodleCourseId = await this.moodleService.createCourse(code, courseName, semester, (c as any).academicYear || '2026/2027');
           if (moodleCourseId) {
             await this.logAction(
               student.id,
               'COURSE_CREATED',
-              `Dynamically created course: ${c.courseCode} (${courseName})`
+              `Dynamically created course: ${code} (${courseName})`
             );
           }
-        } catch (error) {
-          this.logger.error(`Dynamic course creation failed for ${c.courseCode}: ${error.message}`);
+        } catch (error: any) {
+          this.logger.error(`Dynamic course creation failed for ${code}: ${error.message}`);
           await this.logAction(
             student.id,
             'COURSE_CREATION_FAILED',
-            `Could not dynamically create course ${c.courseCode}: ${error.message}`
+            `Could not dynamically create course ${code}: ${error.message}`
           );
         }
       }
@@ -114,7 +170,7 @@ export class OnboardingService {
       if (moodleCourseId) {
         resolvedCourseIds.push(moodleCourseId);
       } else {
-        missingCourses.push(c.courseCode);
+        missingCourses.push(code);
       }
     }
 
@@ -122,7 +178,13 @@ export class OnboardingService {
       try {
         await this.moodleService.enrollStudent(student.moodleUserId, resolvedCourseIds);
         await this.logAction(student.id, 'COURSES_ENROLLED', `Successfully enrolled in: ${courses.filter(c => !missingCourses.includes(c.courseCode)).map(c => c.courseCode).join(', ')}`);
-      } catch (error) {
+        
+        // Clear pending registration state upon successful enrollment
+        student.pendingCourses = null;
+        student.pendingSemester = null;
+        student.pendingAcademicYear = null;
+        await this.studentRepo.save(student);
+      } catch (error: any) {
         this.logger.error(`Moodle enrollment call failed: ${error.message}`);
         await this.logAction(student.id, 'COURSE_ENROLLMENT_FAILED', `Moodle API error during enrollment: ${error.message}`);
       }

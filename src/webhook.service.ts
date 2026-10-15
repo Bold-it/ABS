@@ -76,7 +76,7 @@ export class WebhookService {
           programme: rawBody?.programme || rawBody?.program || null,
           level: rawBody?.level ? String(rawBody.level) : '100',
           schoolEmail: `${indexNumber.toLowerCase()}@htu.edu.gh`,
-          state: StudentState.ACTIVE,
+          state: StudentState.ADMITTED,
           paymentPercentage: 100,
         });
         await this.studentRepo.save(student);
@@ -172,6 +172,14 @@ export class WebhookService {
     const courses = this.normalizeCourses(rawCourses);
     const semester = String(rawBody?.semester || rawBody?.term || '1');
     const academicYear = String(rawBody?.academicYear || rawBody?.academic_year || rawBody?.year || '2026/2027');
+
+    // Persist pending registration state in DB so it is crash-resilient across server restarts
+    student.pendingCourses = JSON.stringify(courses);
+    student.pendingSemester = semester;
+    student.pendingAcademicYear = academicYear;
+    if (rawBody?.programme && !student.programme) student.programme = rawBody.programme;
+    if (rawBody?.level) student.level = String(rawBody.level);
+    await this.studentRepo.save(student);
 
     await this.moodleQueue.addJob('BULK_ENROLL', { 
       studentId: student.id, 

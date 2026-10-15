@@ -84,38 +84,69 @@ function StudentDetailContent() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Account Integrity Timeline */}
-        <div className="lg:col-span-2 bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
-          <h3 className="text-xl font-black text-gray-800 mb-10 uppercase tracking-tight flex items-center gap-3">
-            Automation Audit Trail
-            <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
-          </h3>
+        {/* Left Column */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Account Integrity Timeline */}
+          <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
+            <h3 className="text-xl font-black text-gray-800 mb-10 uppercase tracking-tight flex items-center gap-3">
+              Automation Audit Trail
+              <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
+            </h3>
 
-          <div className="relative space-y-12 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-100 before:to-transparent">
-            {student.auditLogs?.length > 0 ? student.auditLogs.map((log: any, i: number) => (
-              <div key={i} className="relative flex items-start gap-8 group">
-                <div className={`absolute left-0 mt-1.5 w-10 h-10 rounded-full border-4 border-white shadow-md flex items-center justify-center transition-transform group-hover:scale-110 z-10 ${
-                    log.action.includes('FAILURE') ? 'bg-red-500' : 'bg-primary'
-                }`}>
-                    <span className="text-white text-[10px] font-black">{student.auditLogs.length - i}</span>
-                </div>
-                <div className="ml-14 flex-1">
-                  <div className="flex justify-between items-center mb-1">
-                    <p className="text-sm font-black text-gray-800 uppercase tracking-tight">{log.action.replace(/_/g, ' ')}</p>
-                    <time className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                        {new Date(log.createdAt).toLocaleString()}
-                    </time>
+            <div className="relative space-y-12 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-100 before:to-transparent">
+              {student.auditLogs?.length > 0 ? student.auditLogs.map((log: any, i: number) => (
+                <div key={i} className="relative flex items-start gap-8 group">
+                  <div className={`absolute left-0 mt-1.5 w-10 h-10 rounded-full border-4 border-white shadow-md flex items-center justify-center transition-transform group-hover:scale-110 z-10 ${
+                      log.action.includes('FAILURE') ? 'bg-red-500' : 'bg-primary'
+                  }`}>
+                      <span className="text-white text-[10px] font-black">{student.auditLogs.length - i}</span>
                   </div>
-                  <p className="text-xs text-gray-500 leading-relaxed font-medium bg-gray-50 p-4 rounded-2xl border border-gray-100 italic">
-                    "{log.details}"
-                  </p>
+                  <div className="ml-14 flex-1">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-sm font-black text-gray-800 uppercase tracking-tight">{log.action.replace(/_/g, ' ')}</p>
+                      <time className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                          {new Date(log.createdAt).toLocaleString()}
+                      </time>
+                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed font-medium bg-gray-50 p-4 rounded-2xl border border-gray-100 italic">
+                      "{log.details}"
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )) : (
-              <div className="text-center py-20">
-                <p className="text-gray-400 font-bold italic">No automated events recorded yet.</p>
-              </div>
-            )}
+              )) : (
+                <div className="text-center py-20">
+                  <p className="text-gray-400 font-bold italic">No automated events recorded yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Enrolled Courses (LMS) */}
+          <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
+            <h3 className="text-xl font-black text-gray-800 mb-8 uppercase tracking-tight flex items-center gap-3">
+              Enrolled LMS Courses
+              <span className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-xs shadow-inner">
+                {student.enrolledCourses?.length || 0}
+              </span>
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {student.enrolledCourses?.length > 0 ? student.enrolledCourses.map((c: any, i: number) => (
+                <div key={i} className="p-5 rounded-2xl bg-gray-50 border border-gray-100 flex items-start gap-4 hover:shadow-md transition-shadow">
+                  <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary font-black flex-shrink-0 border border-gray-100">
+                    {c.shortname?.substring(0, 3)}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">{c.shortname}</p>
+                    <p className="text-xs font-bold text-gray-700 leading-snug">{c.fullname}</p>
+                  </div>
+                </div>
+              )) : (
+                <div className="col-span-2 text-center py-10 bg-gray-50 rounded-3xl border border-gray-100">
+                  <p className="text-gray-400 font-bold italic">No active course enrollments found in Moodle.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

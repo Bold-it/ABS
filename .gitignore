@@ -29,3 +29,5 @@ restore_*/
 deploy_temp/
 scratch/
 google-credentials.json
+query_logs.js
+*.tsbuildinfo

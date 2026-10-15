@@ -74,12 +74,35 @@ export class MoodleService {
         }
 
         if (existingUsers && existingUsers.length > 0) {
-          this.logger.log(`User ${username}/${email} already exists in Moodle. Linking existing account.`);
-          return existingUsers[0].id;
+          const user = existingUsers[0];
+          this.logger.log(`User ${username}/${email} already exists in Moodle (ID ${user.id}).`);
+          // If the existing user had a numeric or placeholder name in Moodle, update it to their real name
+          if (student.fullName && !/^\d+$/.test(student.fullName) && (/^\d+$/.test(user.firstname) || user.firstname === 'Student' || user.lastname === 'Student')) {
+            try {
+              const nameParts = student.fullName.trim().split(/\s+/);
+              const firstname = nameParts[0] || 'Student';
+              const lastname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Student';
+              await this.callMoodle('core_user_update_users', {
+                'users[0][id]': user.id,
+                'users[0][firstname]': firstname,
+                'users[0][lastname]': lastname,
+                'users[0][email]': email,
+              });
+              this.logger.log(`Updated Moodle user ${user.id} profile from '${user.firstname}' to '${firstname} ${lastname}' (${email})`);
+            } catch (upErr: any) {
+              this.logger.warn(`Could not update user profile in Moodle: ${upErr.message}`);
+            }
+          }
+          return user.id;
         }
       } catch (error) {
         this.logger.warn(`Failed to check if user ${username}/${email} exists: ${error.message}`);
       }
+    }
+
+    if (student.fullName && /^\d+$/.test(student.fullName.trim())) {
+      this.logger.warn(`Skipping Moodle user creation for purely numeric name: ${student.fullName}`);
+      return null;
     }
 
     const nameParts = (student.fullName || 'Student').trim().split(/\s+/);
@@ -111,7 +134,7 @@ export class MoodleService {
     return this.callMoodle('enrol_manual_enrol_users', params);
   }
 
-  async enrollTeacher(moodleUserId: string, courseId: string | number) {
+  async enrollTeacher(moodleUserId: string | number, courseId: string | number) {
     const params: any = {
       'enrolments[0][roleid]': 3, // 3 = Editing Teacher
       'enrolments[0][userid]': moodleUserId,
@@ -124,6 +147,182 @@ export class MoodleService {
     }
   }
 
+  async unenrollTeacher(moodleUserId: string | number, courseId: string | number) {
+    const params = {
+      'enrolments[0][userid]': moodleUserId,
+      'enrolments[0][courseid]': courseId,
+      'enrolments[0][roleid]': 3,
+    };
+    try {
+      return await this.callMoodle('enrol_manual_unenrol_users', params);
+    } catch (err: any) {
+      this.logger.warn(`Could not unenroll teacher ${moodleUserId} from course ${courseId}: ${err.message}`);
+    }
+  }
+
+  async removeDummyTeachersFromCourse(moodleCourseId: string | number): Promise<number> {
+    if (this.isMock || !moodleCourseId) return 0;
+    let count = 0;
+    try {
+      const enrolledUsers = await this.callMoodle('core_enrol_get_enrolled_users', { courseid: moodleCourseId });
+      if (Array.isArray(enrolledUsers)) {
+        for (const u of enrolledUsers) {
+          const isNumericOrDummy = /^\d+$/.test(u.username) || /^\d+(\s+Student)?$/i.test(u.fullname) || u.firstname === 'Student' || u.lastname === 'Student';
+          const hasTeacherRole = u.roles && u.roles.some((r: any) => r.roleid === 3 || r.roleid === 4 || r.shortname?.includes('teacher'));
+          if (isNumericOrDummy && hasTeacherRole) {
+            this.logger.log(`Removing dummy teacher ${u.username} (${u.fullname}, ID ${u.id}) from course ${moodleCourseId}`);
+            await this.unenrollTeacher(u.id, moodleCourseId);
+            count++;
+          }
+        }
+      }
+    } catch (e: any) {
+      this.logger.warn(`Could not clean dummy teachers from course ${moodleCourseId}: ${e.message}`);
+    }
+    return count;
+  }
+
+  async syncCourseTeacher(
+    moodleCourseId: string | number,
+    teacher: { name?: string | null; email?: string | null; originalId?: string }
+  ): Promise<number | null> {
+    if (this.isMock || !moodleCourseId) {
+      return null;
+    }
+
+    // If teacher is missing, empty, or purely numeric, ensure this course is completely FREE from dummy teachers!
+    if (!teacher || !teacher.name || /^\d+$/.test(teacher.name.trim())) {
+      this.logger.log(`Course ${moodleCourseId} has no assigned lecturer. Removing any placeholder/numeric teachers...`);
+      await this.removeDummyTeachersFromCourse(moodleCourseId);
+      return null;
+    }
+
+    try {
+      let targetEmail = (teacher.email || '').trim().toLowerCase();
+      const nameParts = teacher.name.trim().split(/\s+/);
+      const firstname = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
+      const lastname = nameParts.length > 1 ? nameParts[nameParts.length - 1] : 'Lecturer';
+
+      let teacherUserId: number | null = null;
+
+      // 1. Search if the teacher already exists in Moodle by official HTU email
+      if (targetEmail && targetEmail.includes('@')) {
+        try {
+          const byEmail = await this.callMoodle('core_user_get_users_by_field', {
+            field: 'email',
+            'values[0]': targetEmail
+          });
+          if (Array.isArray(byEmail) && byEmail.length > 0) {
+            teacherUserId = byEmail[0].id;
+            this.logger.log(`Found existing Moodle teacher by email ${targetEmail} (ID ${teacherUserId})`);
+            if (/^\d+$/.test(byEmail[0].firstname) || byEmail[0].lastname === 'Student') {
+              try {
+                await this.callMoodle('core_user_update_users', {
+                  'users[0][id]': teacherUserId,
+                  'users[0][firstname]': firstname,
+                  'users[0][lastname]': lastname,
+                });
+              } catch (e: any) {}
+            }
+          }
+        } catch (e: any) {
+          this.logger.warn(`Could not lookup teacher by email ${targetEmail}: ${e.message}`);
+        }
+      }
+
+      // 2. If not found by email, search by username candidate (email prefix e.g. pmodey)
+      if (!teacherUserId && targetEmail) {
+        const usernameCandidate = targetEmail.split('@')[0].toLowerCase();
+        try {
+          const byUsername = await this.callMoodle('core_user_get_users_by_field', {
+            field: 'username',
+            'values[0]': usernameCandidate
+          });
+          if (Array.isArray(byUsername) && byUsername.length > 0) {
+            teacherUserId = byUsername[0].id;
+            this.logger.log(`Found existing Moodle teacher by username ${usernameCandidate} (ID ${teacherUserId})`);
+          }
+        } catch (e: any) {}
+      }
+
+      // 3. If still not found, check if a dummy account was created with originalId (e.g. 1500026)
+      if (!teacherUserId && teacher.originalId && /^\d+$/.test(teacher.originalId)) {
+        try {
+          const byId = await this.callMoodle('core_user_get_users_by_field', {
+            field: 'username',
+            'values[0]': teacher.originalId.toLowerCase()
+          });
+          if (Array.isArray(byId) && byId.length > 0) {
+            teacherUserId = byId[0].id;
+            const updateParams: any = {
+              'users[0][id]': teacherUserId,
+              'users[0][firstname]': firstname,
+              'users[0][lastname]': lastname,
+            };
+            if (targetEmail) {
+              updateParams['users[0][email]'] = targetEmail;
+            }
+            try {
+              await this.callMoodle('core_user_update_users', updateParams);
+              this.logger.log(`Updated dummy user ${teacher.originalId} (ID ${teacherUserId}) to '${firstname} ${lastname}'`);
+            } catch (err: any) {
+              delete updateParams['users[0][email]'];
+              await this.callMoodle('core_user_update_users', updateParams);
+            }
+          }
+        } catch (e: any) {}
+      }
+
+      // 4. If teacher still does not exist, create them properly with oauth2
+      if (!teacherUserId) {
+        const newUsername = targetEmail ? targetEmail.split('@')[0].toLowerCase() : (teacher.originalId || 'teacher').toLowerCase();
+        const newEmail = targetEmail || `${newUsername}@htu.edu.gh`;
+        const createResult = await this.callMoodle('core_user_create_users', {
+          'users[0][username]': newUsername,
+          'users[0][password]': 'HtuTeacher@2026!',
+          'users[0][firstname]': firstname,
+          'users[0][lastname]': lastname,
+          'users[0][email]': newEmail,
+          'users[0][auth]': 'oauth2'
+        });
+        teacherUserId = createResult?.[0]?.id || null;
+      }
+
+      if (!teacherUserId) {
+        this.logger.warn(`Could not resolve or create teacher ${teacher.name} for course ${moodleCourseId}`);
+        return null;
+      }
+
+      // 5. Enroll the real teacher in the course
+      await this.enrollTeacher(String(teacherUserId), moodleCourseId);
+      this.logger.log(`Enrolled real teacher ${teacher.name} (ID ${teacherUserId}) in course ${moodleCourseId}`);
+
+      // 6. Scan enrolled users in this course and UNENROL any numeric dummy teachers!
+      try {
+        const enrolledUsers = await this.callMoodle('core_enrol_get_enrolled_users', { courseid: moodleCourseId });
+        if (Array.isArray(enrolledUsers)) {
+          for (const u of enrolledUsers) {
+            if (Number(u.id) !== Number(teacherUserId)) {
+              const isNumericOrDummy = /^\d+$/.test(u.username) || /^\d+(\s+Student)?$/i.test(u.fullname) || (teacher.originalId && u.username === teacher.originalId);
+              const hasTeacherRole = u.roles && u.roles.some((r: any) => r.roleid === 3 || r.roleid === 4 || r.shortname?.includes('teacher'));
+              if (isNumericOrDummy && hasTeacherRole) {
+                this.logger.log(`Unenrolling numeric dummy teacher ${u.username} (${u.fullname}, ID ${u.id}) from course ${moodleCourseId}`);
+                await this.unenrollTeacher(u.id, moodleCourseId);
+              }
+            }
+          }
+        }
+      } catch (cleanErr: any) {
+        this.logger.warn(`Could not clean up dummy teachers in course ${moodleCourseId}: ${cleanErr.message}`);
+      }
+
+      return teacherUserId;
+    } catch (error: any) {
+      this.logger.error(`Error syncing course teacher for course ${moodleCourseId}: ${error.message}`);
+      return null;
+    }
+  }
+
   async unenrollStudent(moodleUserId: string, courseIds: (string | number)[]) {
     const params: any = {};
     courseIds.forEach((id, index) => {
@@ -133,7 +332,19 @@ export class MoodleService {
     return this.callMoodle('enrol_manual_unenrol_users', params);
   }
 
+  private courseIdCache = new Map<string, number>();
+
+  cacheCourseId(shortname: string, id: number) {
+    if (!shortname || !id) return;
+    this.courseIdCache.set(shortname.trim().toLowerCase(), id);
+  }
+
   async getCourseIdByShortname(shortname: string): Promise<number | null> {
+    const key = (shortname || '').trim().toLowerCase();
+    if (!key) return null;
+    if (this.courseIdCache.has(key)) {
+      return this.courseIdCache.get(key)!;
+    }
     if (this.isMock) {
       this.logger.log(`[MOCK] Moodle Course Lookup: shortname ${shortname} => Mocking Course ID 101`);
       return 101;
@@ -143,9 +354,45 @@ export class MoodleService {
         field: 'shortname',
         value: shortname
       });
-      return result?.courses?.[0]?.id || null;
-    } catch (error) {
+      const id = result?.courses?.[0]?.id || null;
+      if (id) {
+        this.courseIdCache.set(key, id);
+      }
+      return id;
+    } catch (error: any) {
       this.logger.warn(`Could not resolve course ID for shortname ${shortname}: ${error.message}`);
+      return null;
+    }
+  }
+
+  async getUserIdByUsername(username: string): Promise<number | null> {
+    if (this.isMock) return null;
+    const clean = (username || '').replace(/\s+/g, '').toLowerCase();
+    if (!clean) return null;
+    try {
+      const res = await this.callMoodle('core_user_get_users_by_field', {
+        field: 'username',
+        'values[0]': clean,
+      });
+      return res?.[0]?.id || null;
+    } catch (err: any) {
+      this.logger.warn(`Could not lookup user by username ${clean}: ${err.message}`);
+      return null;
+    }
+  }
+
+  async getUserIdByEmail(email: string): Promise<number | null> {
+    if (this.isMock) return null;
+    const clean = (email || '').trim().toLowerCase();
+    if (!clean) return null;
+    try {
+      const res = await this.callMoodle('core_user_get_users_by_field', {
+        field: 'email',
+        'values[0]': clean,
+      });
+      return res?.[0]?.id || null;
+    } catch (err: any) {
+      this.logger.warn(`Could not lookup user by email ${clean}: ${err.message}`);
       return null;
     }
   }
@@ -451,7 +698,12 @@ export class MoodleService {
     };
     try {
       const result = await this.callMoodle('core_course_create_courses', params);
-      return result?.[0]?.id || null;
+      const newId = result?.[0]?.id || null;
+      if (newId) {
+        this.cacheCourseId(formattedShortname, newId);
+        this.cacheCourseId(courseCode, newId);
+      }
+      return newId;
     } catch (error) {
       this.logger.error(`Failed to dynamically create course ${courseCode} in Moodle: ${error.message}`);
       throw error;
@@ -1074,7 +1326,14 @@ export class MoodleService {
                // Try to find a teacher (roleid 3 or 4) or just grab anyone who isn't a student if roles aren't exposed easily
                // Since core_enrol_get_enrolled_users returns roles array
                const teacher = users.find(u => u.roles && u.roles.some((r: any) => r.roleid === 3 || r.roleid === 4 || r.shortname?.includes('teacher') || r.shortname?.includes('editingteacher')));
-               if (teacher) teacherName = teacher.fullname;
+               if (teacher) {
+                 const cleanName = (teacher.fullname || '').trim();
+                 if (/^\d+(\s+Student)?$/i.test(cleanName)) {
+                   teacherName = 'Unassigned';
+                 } else {
+                   teacherName = cleanName;
+                 }
+               }
            }
         } catch(e) {}
 
@@ -1098,4 +1357,27 @@ export class MoodleService {
       return { success: false, error: err.message };
     }
   }
+
+  async getUserCourses(userid: string | number) {
+    if (!userid) return [];
+    if (this.isMock) {
+      return [{ id: 101, shortname: 'MOCK101', fullname: 'Mock Course 101' }];
+    }
+    try {
+      const courses = await this.callMoodle('core_enrol_get_users_courses', { userid });
+      if (Array.isArray(courses)) {
+        return courses.map((c: any) => ({
+          id: c.id,
+          shortname: c.shortname,
+          fullname: c.fullname,
+          enrolledusercount: c.enrolledusercount
+        }));
+      }
+      return [];
+    } catch (err: any) {
+      this.logger.warn(`Failed to fetch courses for Moodle User ${userid}: ${err.message}`);
+      return [];
+    }
+  }
 }
+
